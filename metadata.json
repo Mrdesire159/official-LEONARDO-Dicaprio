@@ -1,0 +1,8 @@
+{
+  "name": "Leonardo DiCaprio — Official VIP Experience",
+  "description": "Futuristic, luxury cinematic experience featuring Leonardo DiCaprio's biography, 3D film reel timeline, orbiting awards, interactive 360° photo gallery, VIP Meet & Greet cards, and collector store.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
