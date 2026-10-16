@@ -166,21 +166,6 @@ export function Navbar({
             </button>
           )}
 
-          {/* Patron Profile Trigger */}
-          {onOpenProfile && (
-            <button
-              onClick={onOpenProfile}
-              className="flex h-7 sm:h-9 items-center gap-1 sm:gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 sm:px-2.5 text-xs text-zinc-300 hover:text-white hover:border-white/20 transition-colors"
-              title="Patron Profile & Orders"
-            >
-              <User className="h-3.5 w-3.5" />
-              {orderCount > 0 && (
-                <span className="rounded-full bg-amber-400 text-black px-1 sm:px-1.5 text-[9px] sm:text-[10px] font-black leading-none py-0.5">
-                  {orderCount}
-                </span>
-              )}
-            </button>
-          )}
 
           {/* Discreet Smallish Admin Portal Trigger (hidden on phone, accessible in drawer) */}
           {onOpenAdmin && (

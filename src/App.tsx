@@ -23,6 +23,7 @@ import {
 } from './data/diCaprioData';
 import { ParticleBackground } from './components/ParticleBackground';
 import { CursorGlow } from './components/CursorGlow';
+import { CinematicScrollProgressBar } from './components/CinematicScrollProgressBar';
 import { Navbar } from './components/Navbar';
 import { HeroOrbital } from './components/HeroOrbital';
 import { FilmReelTimeline } from './components/FilmReelTimeline';
@@ -37,10 +38,12 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { SocialMediaBallModal } from './components/SocialMediaBallModal';
 import { FloatingSocialBallButton } from './components/FloatingSocialBallButton';
+import { PageNavigationHeader } from './components/PageNavigationHeader';
+import { FloatingBackButton } from './components/FloatingBackButton';
 import { LiveChatAgent } from './components/LiveChatAgent';
 import { AdminPortalModal } from './components/AdminPortalModal';
 import { Footer } from './components/Footer';
-import { ArrowRight, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Home, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe } from 'lucide-react';
 
 export default function App() {
   const [currentTheme, setCurrentTheme] = useState<LuxuryTheme>('gold');
@@ -99,7 +102,11 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Navigation history stack for back key and page return
+  const [pageHistory, setPageHistory] = useState<PageId[]>(['home']);
+
   const handleSelectPage = (page: PageId) => {
+    setPageHistory((prev) => (prev[prev.length - 1] === page ? prev : [...prev, page]));
     setActivePage(page);
     try {
       window.location.hash = page;
@@ -107,6 +114,42 @@ export default function App() {
       // ignore
     }
     window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+  };
+
+  const handleGoBack = () => {
+    if (pageHistory.length > 1) {
+      const newHistory = [...pageHistory];
+      newHistory.pop(); // remove current page
+      const prevPage = newHistory[newHistory.length - 1];
+      setPageHistory(newHistory);
+      setActivePage(prevPage);
+      try {
+        window.location.hash = prevPage;
+      } catch {
+        // ignore
+      }
+      window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    } else {
+      // Sequential fallback order
+      const sequence: PageId[] = [
+        'home',
+        'biography',
+        'filmography',
+        'vip-guild',
+        'gallery',
+        'verification',
+        'testimonials',
+      ];
+      const curIdx = sequence.indexOf(activePage);
+      const prev = curIdx > 0 ? sequence[curIdx - 1] : 'home';
+      setActivePage(prev);
+      try {
+        window.location.hash = prev;
+      } catch {
+        // ignore
+      }
+      window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    }
   };
 
   // Worldwide Testimonials state with local persistence
@@ -371,6 +414,9 @@ export default function App() {
       {/* Trailing Cursor Glow */}
       <CursorGlow theme={currentTheme} reducedMotion={reducedMotion} />
 
+      {/* Cinematic Golden Film Reel Scroll Progress Bar */}
+      <CinematicScrollProgressBar activePage={activePage} />
+
       {/* Luxury Navigation Header with Multi-Page Tabs */}
       <Navbar
         currentTheme={currentTheme}
@@ -390,6 +436,14 @@ export default function App() {
 
       {/* PAGE ARCHITECTURE: Professional & Humanized Page-by-Page Router */}
       <main className="relative z-10 flex flex-col items-center w-full pt-20 sm:pt-24 lg:pt-28 pb-16 min-h-[75vh]">
+        {/* Global Back Key & Page Switcher Header for Every Subpage */}
+        <PageNavigationHeader
+          activePage={activePage}
+          onSelectPage={handleSelectPage}
+          onGoBack={handleGoBack}
+          currentTheme={currentTheme}
+        />
+
         {/* PAGE 1: SANCTUARY OVERVIEW (HOME) */}
         {activePage === 'home' && (
           <div className="w-full flex flex-col items-center animate-in fade-in duration-300">
@@ -408,17 +462,27 @@ export default function App() {
           <div className="w-full flex flex-col items-center animate-in fade-in duration-300">
             <BiographySection currentTheme={currentTheme} />
 
-            {/* Bottom Next-Chapter Navigator */}
-            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 mt-8">
-              <button
-                onClick={() => handleSelectPage('home')}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                ← Return to Overview
-              </button>
+            {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
+            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400 hover:text-black px-4 py-2.5 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back</span>
+                </button>
+                <button
+                  onClick={() => handleSelectPage('home')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-4 py-2.5 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <Home className="h-4 w-4 text-amber-400" />
+                  <span>Main Sanctuary</span>
+                </button>
+              </div>
               <button
                 onClick={() => handleSelectPage('filmography')}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105 cursor-pointer ml-auto"
               >
                 <span>Chapter II: 35mm Celluloid Vault & Honors</span>
                 <ArrowRight className="h-4 w-4 text-amber-400" />
@@ -433,17 +497,27 @@ export default function App() {
             <FilmReelTimeline currentTheme={currentTheme} />
             <OrbitingAwards currentTheme={currentTheme} />
 
-            {/* Bottom Next-Chapter Navigator */}
-            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 mt-8">
-              <button
-                onClick={() => handleSelectPage('biography')}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                ← Previous: Chapter I (Biography)
-              </button>
+            {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
+            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400 hover:text-black px-4 py-2.5 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back (Biography)</span>
+                </button>
+                <button
+                  onClick={() => handleSelectPage('home')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-4 py-2.5 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <Home className="h-4 w-4 text-amber-400" />
+                  <span>Main Sanctuary</span>
+                </button>
+              </div>
               <button
                 onClick={() => handleSelectPage('vip-guild')}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105 cursor-pointer ml-auto"
               >
                 <span>Chapter III: VIP Inner Circle Guild</span>
                 <ArrowRight className="h-4 w-4 text-amber-400" />
@@ -461,17 +535,27 @@ export default function App() {
               onInstantBuy={handleInstantBuy}
             />
 
-            {/* Bottom Next-Chapter Navigator */}
-            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 mt-8">
-              <button
-                onClick={() => handleSelectPage('filmography')}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                ← Previous: Chapter II (Film Vault)
-              </button>
+            {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
+            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400 hover:text-black px-4 py-2.5 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back (Films)</span>
+                </button>
+                <button
+                  onClick={() => handleSelectPage('home')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-4 py-2.5 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <Home className="h-4 w-4 text-amber-400" />
+                  <span>Main Sanctuary</span>
+                </button>
+              </div>
               <button
                 onClick={() => handleSelectPage('gallery')}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105 cursor-pointer ml-auto"
               >
                 <span>Chapter IV: Archival Portrait Salon</span>
                 <ArrowRight className="h-4 w-4 text-amber-400" />
@@ -485,17 +569,27 @@ export default function App() {
           <div className="w-full flex flex-col items-center animate-in fade-in duration-300">
             <PhotoGallery360 currentTheme={currentTheme} />
 
-            {/* Bottom Next-Chapter Navigator */}
-            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 mt-8">
-              <button
-                onClick={() => handleSelectPage('vip-guild')}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                ← Previous: Chapter III (VIP Guild)
-              </button>
+            {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
+            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400 hover:text-black px-4 py-2.5 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back (VIP Guild)</span>
+                </button>
+                <button
+                  onClick={() => handleSelectPage('home')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-4 py-2.5 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <Home className="h-4 w-4 text-amber-400" />
+                  <span>Main Sanctuary</span>
+                </button>
+              </div>
               <button
                 onClick={() => handleSelectPage('verification')}
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-amber-300 transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-amber-300 transition-all hover:scale-105 cursor-pointer ml-auto"
               >
                 <span>Official Verification & Imposter Registry</span>
                 <ArrowRight className="h-4 w-4" />
@@ -512,17 +606,27 @@ export default function App() {
               onOpenReportModal={() => setIsVerificationModalOpen(true)}
             />
 
-            {/* Bottom Next-Chapter Navigator */}
-            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 mt-8">
-              <button
-                onClick={() => handleSelectPage('gallery')}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                ← Previous: Chapter IV (Portraits)
-              </button>
+            {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
+            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400 hover:text-black px-4 py-2.5 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back (Portraits)</span>
+                </button>
+                <button
+                  onClick={() => handleSelectPage('home')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-4 py-2.5 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <Home className="h-4 w-4 text-amber-400" />
+                  <span>Main Sanctuary</span>
+                </button>
+              </div>
               <button
                 onClick={() => handleSelectPage('testimonials')}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105 cursor-pointer ml-auto"
               >
                 <span>Chapter V: 50 Worldwide Testimonials</span>
                 <ArrowRight className="h-4 w-4 text-amber-400" />
@@ -540,20 +644,30 @@ export default function App() {
               onOpenAdmin={() => setIsOwnerAdminOpen(true)}
             />
 
-            {/* Bottom Next-Chapter Navigator */}
-            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 mt-8">
-              <button
-                onClick={() => handleSelectPage('verification')}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                ← Previous: Official Verification Desk
-              </button>
+            {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
+            <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400 hover:text-black px-4 py-2.5 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back (Verification)</span>
+                </button>
+                <button
+                  onClick={() => handleSelectPage('gallery')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 px-4 py-2.5 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95"
+                >
+                  <Image className="h-4 w-4 text-amber-400" />
+                  <span>Portraits</span>
+                </button>
+              </div>
               <button
                 onClick={() => handleSelectPage('home')}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-white transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-400/20 hover:bg-amber-400 hover:text-black px-5 py-3 text-xs font-cinzel font-bold uppercase tracking-wider text-amber-300 hover:text-black transition-all hover:scale-105 cursor-pointer ml-auto"
               >
-                <span>Return to Sanctuary Overview</span>
-                <ArrowRight className="h-4 w-4 text-amber-400" />
+                <Home className="h-4 w-4" />
+                <span>Return to Main Sanctuary</span>
               </button>
             </div>
           </div>
@@ -613,6 +727,13 @@ export default function App() {
         onOpenAdmin={() => setIsOwnerAdminOpen(true)}
         onNavigatePage={handleSelectPage}
         onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
+      />
+
+      {/* Floating Back Key & Return to Main Button */}
+      <FloatingBackButton
+        activePage={activePage}
+        onGoBack={handleGoBack}
+        onSelectMainPage={() => handleSelectPage('home')}
       />
 
       {/* Floating 3D Social Media Ball Action Button */}

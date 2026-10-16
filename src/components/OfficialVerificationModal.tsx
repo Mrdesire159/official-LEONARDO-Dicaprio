@@ -189,7 +189,7 @@ export function OfficialVerificationModal({
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">X (Twitter)</span>
-                    <span className="text-[10px] text-zinc-400 font-mono">19M+</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">16.7M+</span>
                   </div>
                   <p className="text-xs font-mono text-zinc-300 font-semibold mt-1">
                     {SOCIAL_MEDIA_HANDLES.x.handle}
@@ -214,7 +214,7 @@ export function OfficialVerificationModal({
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">Instagram</span>
-                    <span className="text-[10px] text-pink-400 font-mono">62M+</span>
+                    <span className="text-[10px] text-pink-400 font-mono">58.6M+</span>
                   </div>
                   <p className="text-xs font-mono text-pink-300 font-semibold mt-1">
                     {SOCIAL_MEDIA_HANDLES.instagram.handle}
@@ -239,7 +239,7 @@ export function OfficialVerificationModal({
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">Facebook</span>
-                    <span className="text-[10px] text-blue-400 font-mono">19M+</span>
+                    <span className="text-[10px] text-blue-400 font-mono">19.2M+</span>
                   </div>
                   <p className="text-xs font-mono text-blue-300 font-semibold mt-1">
                     {SOCIAL_MEDIA_HANDLES.facebook.handle}

@@ -239,28 +239,24 @@ export function PhotoGallery360({
             <h2 className="font-cinzel text-3xl sm:text-5xl font-black text-white tracking-tight uppercase">
               Archival <span className={`bg-gradient-to-r ${themeConfig.gradientText} bg-clip-text text-transparent`}>Portrait Gallery</span>
             </h2>
-            <p className="mt-2 text-sm text-zinc-300 font-light max-w-2xl leading-relaxed">
-              Curated master portraits cycling in seamless Auto Display Mode. Each iconic portrait slides up into focus in one unified salon, keeping every moment synchronized in one place.
-            </p>
           </div>
 
           {/* Quick controls: Back to Top, Auto-Slide and Slide Up navigation */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Back to Top / Experience key */}
+            {/* Quick Back key */}
             <button
               onClick={() => {
-                const hero = document.getElementById('multiverse');
-                if (hero) {
-                  hero.scrollIntoView({ behavior: 'smooth' });
+                if (window.history.length > 1) {
+                  window.history.back();
                 } else {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  window.location.hash = 'home';
                 }
               }}
               className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-black/60 hover:bg-amber-400 hover:text-black px-4 py-2 text-xs font-bold text-amber-300 transition-all shadow-md active:scale-95 group cursor-pointer"
-              title="Back to Top of Website"
+              title="Return back to previous page"
             >
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" />
-              <span>Back to Top</span>
+              <span>Back</span>
             </button>
 
             <button
@@ -320,9 +316,7 @@ export function PhotoGallery360({
                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 ${isAutoSlide ? 'opacity-75' : 'opacity-0'}`} />
                 <span className={`relative inline-flex rounded-full h-3 w-3 ${isAutoSlide ? 'bg-amber-400' : 'bg-zinc-500'}`} />
               </span>
-              <span className="font-cinzel text-sm sm:text-base font-bold text-white tracking-wide">
-                Single-Station Archival Showcase
-              </span>
+
               <span className="rounded-md border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-mono font-bold text-amber-300 uppercase tracking-wider">
                 {isAutoSlide ? 'Auto Display Active' : 'Auto Display Paused'}
               </span>
@@ -541,7 +535,7 @@ export function PhotoGallery360({
           </div>
 
           {/* Bottom Synchronized Slider Navigation Bar */}
-          <div className="mt-6 pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
+          <div className="mt-6 pt-5 border-t border-white/10 flex items-center justify-center sm:justify-start gap-4">
             {/* Dots / Jump pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               {USER_PHOTOS.map((_, idx) => (
@@ -556,18 +550,6 @@ export function PhotoGallery360({
                   title={`Jump to Portrait ${idx + 1}`}
                 />
               ))}
-            </div>
-
-            {/* Instruction footnote with Inspect link */}
-            <div className="text-xs text-zinc-400 flex items-center gap-2">
-              <span className="hidden sm:inline">Portraits advance automatically in one place</span>
-              <span className="inline-block h-1 w-1 rounded-full bg-amber-400/60" />
-              <button
-                onClick={() => setActiveModalPhoto(activePhoto)}
-                className="text-amber-300 hover:underline font-semibold cursor-pointer"
-              >
-                Inspect active portrait full-screen (with Back button)
-              </button>
             </div>
           </div>
         </div>

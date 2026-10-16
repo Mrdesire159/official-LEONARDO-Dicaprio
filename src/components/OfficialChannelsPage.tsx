@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  ShieldAlert,
   ShieldCheck,
   Send,
   ExternalLink,
@@ -40,22 +39,11 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12 animate-in fade-in duration-300">
-      {/* Page Header */}
-      <div className="border-b border-white/10 pb-8 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.25em] uppercase" style={{ color: themeConfig.accent }}>
-          <ShieldAlert className="h-4 w-4" />
-          <span>Security & Provenance Dispatch</span>
-        </div>
-        <h1 className="font-cinzel text-3xl sm:text-5xl font-black text-white tracking-tight uppercase">
-          Official Channels & Imposter Warning
-        </h1>
-        <p className="text-sm sm:text-base text-zinc-300 max-w-3xl leading-relaxed">
-          The verified digital record of Leonardo DiCaprio. To protect supporters, fans, and philanthropic partners globally, this registry outlines the one and only verified communication channels and our direct imposter defense desk.
-        </p>
-      </div>
 
       {/* Critical Imposter Warning Banner */}
-      <div className="relative overflow-hidden rounded-3xl border-2 border-amber-400/50 bg-gradient-to-r from-red-950/40 via-amber-950/30 to-black p-6 sm:p-8 shadow-[0_0_50px_rgba(245,158,11,0.2)]">
+      <div className="group relative overflow-hidden rounded-3xl border-2 border-amber-400/50 hover:border-amber-400/80 bg-gradient-to-r from-red-950/40 via-amber-950/30 to-black p-6 sm:p-8 shadow-[0_0_50px_rgba(245,158,11,0.2)] hover:shadow-[0_0_70px_rgba(245,158,11,0.35)] transition-all duration-500 ease-out">
+        {/* Ambient background glow */}
+        <div className="pointer-events-none absolute -top-20 -left-20 h-64 w-64 rounded-full bg-amber-500 blur-3xl opacity-10 group-hover:opacity-25 transition-opacity duration-700" />
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/20 border border-amber-400/40 px-3 py-1 text-xs font-bold text-amber-300 uppercase tracking-widest">
@@ -104,8 +92,11 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 1. TELEGRAM (#1 PRIORITY) */}
-          <div className="rounded-2xl border-2 border-[#229ED9] bg-gradient-to-b from-[#229ED9]/15 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_0_35px_rgba(34,158,217,0.25)] relative overflow-hidden">
-            <div className="absolute top-4 right-4">
+          <div className="group rounded-2xl border-2 border-[#229ED9]/80 bg-gradient-to-b from-[#229ED9]/15 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_0_35px_rgba(34,158,217,0.25)] hover:shadow-[0_15px_50px_rgba(34,158,217,0.45)] hover:border-[#229ED9] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+            {/* Subtle interactive radiant glow on hover */}
+            <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-[#229ED9] blur-3xl opacity-20 group-hover:opacity-45 transition-opacity duration-500" />
+
+            <div className="absolute top-4 right-4 z-10">
               <span className="rounded-full bg-[#229ED9] text-white px-3 py-1 text-xs font-black uppercase tracking-wider shadow">
                 ★ #1 Official Broadcast
               </span>
@@ -177,7 +168,9 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
           </div>
 
           {/* 2. X / TWITTER */}
-          <div className="rounded-2xl border border-white/20 bg-zinc-950 p-6 flex flex-col justify-between hover:border-white/40 transition-all">
+          <div className="group rounded-2xl border border-white/20 hover:border-white/60 bg-gradient-to-b from-white/[0.04] via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_45px_rgba(255,255,255,0.12)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+            {/* Subtle interactive radiant glow on hover */}
+            <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-white blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500" />
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -194,7 +187,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
                   </div>
                 </div>
                 <span className="rounded-full bg-white/10 text-white px-3 py-1 text-xs font-mono">
-                  19.0M+
+                  16.7M+
                 </span>
               </div>
 
@@ -245,7 +238,9 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
           </div>
 
           {/* 3. INSTAGRAM */}
-          <div className="rounded-2xl border border-pink-500/30 bg-gradient-to-b from-[#E4405F]/10 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between hover:border-pink-500/50 transition-all">
+          <div className="group rounded-2xl border border-pink-500/30 hover:border-pink-500/70 bg-gradient-to-b from-[#E4405F]/10 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_50px_rgba(228,64,95,0.38)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+            {/* Subtle interactive radiant glow on hover */}
+            <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-gradient-to-br from-[#833AB4] via-[#FD1D1D] to-[#F77737] blur-3xl opacity-10 group-hover:opacity-35 transition-opacity duration-500" />
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -262,7 +257,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
                   </div>
                 </div>
                 <span className="rounded-full bg-[#E4405F]/20 text-pink-300 px-3 py-1 text-xs font-mono">
-                  62.1M+
+                  58.6M+
                 </span>
               </div>
 
@@ -313,7 +308,9 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
           </div>
 
           {/* 4. FACEBOOK */}
-          <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-b from-[#1877F2]/10 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between hover:border-blue-500/50 transition-all">
+          <div className="group rounded-2xl border border-blue-500/30 hover:border-blue-500/70 bg-gradient-to-b from-[#1877F2]/10 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_50px_rgba(24,119,242,0.38)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+            {/* Subtle interactive radiant glow on hover */}
+            <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-[#1877F2] blur-3xl opacity-10 group-hover:opacity-35 transition-opacity duration-500" />
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -392,25 +389,25 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2 border-l-2 border-amber-400/40 pl-4">
+          <div className="group space-y-2 border-l-2 border-amber-400/50 pl-4 py-3 pr-3 rounded-r-xl transition-all duration-300 hover:bg-amber-400/[0.04] hover:shadow-[0_4px_25px_rgba(245,158,11,0.15)] hover:border-amber-400 hover:translate-x-1">
             <span className="text-xs font-mono text-amber-400 font-bold uppercase">Step 01</span>
-            <h4 className="font-cinzel text-base font-bold text-white">Capture the Evidence</h4>
+            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-amber-300 transition-colors">Capture the Evidence</h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
               Take clear screenshots of the fake account profile, username/handle, direct messages, or payment requests sent to you.
             </p>
           </div>
 
-          <div className="space-y-2 border-l-2 border-[#229ED9]/60 pl-4">
+          <div className="group space-y-2 border-l-2 border-[#229ED9]/60 pl-4 py-3 pr-3 rounded-r-xl transition-all duration-300 hover:bg-[#229ED9]/[0.04] hover:shadow-[0_4px_25px_rgba(34,158,217,0.15)] hover:border-[#229ED9] hover:translate-x-1">
             <span className="text-xs font-mono text-[#229ED9] font-bold uppercase">Step 02</span>
-            <h4 className="font-cinzel text-base font-bold text-white">Forward to Telegram</h4>
+            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-cyan-300 transition-colors">Forward to Telegram</h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
               Open the official Telegram channel at <strong>t.me/leonardodicap1974</strong> and submit the evidence directly to our security moderation team.
             </p>
           </div>
 
-          <div className="space-y-2 border-l-2 border-emerald-400/60 pl-4">
+          <div className="group space-y-2 border-l-2 border-emerald-400/60 pl-4 py-3 pr-3 rounded-r-xl transition-all duration-300 hover:bg-emerald-400/[0.04] hover:shadow-[0_4px_25px_rgba(52,211,153,0.15)] hover:border-emerald-400 hover:translate-x-1">
             <span className="text-xs font-mono text-emerald-400 font-bold uppercase">Step 03</span>
-            <h4 className="font-cinzel text-base font-bold text-white">Immediate Legal Takedown</h4>
+            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-emerald-300 transition-colors">Immediate Legal Takedown</h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
               Our legal and trust & safety representatives will coordinate directly with the relevant platform hosts to remove the imposter profile.
             </p>
