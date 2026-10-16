@@ -23,6 +23,55 @@ interface OfficialChannelsPageProps {
   onOpenReportModal?: () => void;
 }
 
+interface SpotlightCardProps {
+  children: React.ReactNode;
+  className?: string;
+  spotlightColor?: string;
+  spotlightRadius?: number;
+  style?: React.CSSProperties;
+}
+
+function SpotlightCard({
+  children,
+  className = '',
+  spotlightColor = 'rgba(255, 255, 255, 0.15)',
+  spotlightRadius = 350,
+  style = {},
+}: SpotlightCardProps) {
+  const [coords, setCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCoords({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
+  return (
+    <div
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`relative overflow-hidden ${className}`}
+      style={style}
+    >
+      {/* Radial Cursor-Following Spotlight Overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300 ease-out"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(${spotlightRadius}px circle at ${coords.x}px ${coords.y}px, ${spotlightColor}, transparent 80%)`,
+        }}
+      />
+      <div className="relative z-10 flex flex-col justify-between h-full w-full">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const themeConfig = THEME_CONFIGS[currentTheme];
@@ -38,10 +87,14 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12 animate-in fade-in duration-300">
+    <div id="verification" className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12 animate-in fade-in duration-300">
 
       {/* Critical Imposter Warning Banner */}
-      <div className="group relative overflow-hidden rounded-3xl border-2 border-amber-400/50 hover:border-amber-400/80 bg-gradient-to-r from-red-950/40 via-amber-950/30 to-black p-6 sm:p-8 shadow-[0_0_50px_rgba(245,158,11,0.2)] hover:shadow-[0_0_70px_rgba(245,158,11,0.35)] transition-all duration-500 ease-out">
+      <SpotlightCard
+        spotlightColor="rgba(245, 158, 11, 0.22)"
+        spotlightRadius={520}
+        className="group rounded-3xl border-2 border-amber-400/50 hover:border-amber-400/80 bg-gradient-to-r from-red-950/40 via-amber-950/30 to-black p-6 sm:p-8 shadow-[0_0_50px_rgba(245,158,11,0.2)] hover:shadow-[0_0_70px_rgba(245,158,11,0.35)] transition-all duration-500 ease-out"
+      >
         {/* Ambient background glow */}
         <div className="pointer-events-none absolute -top-20 -left-20 h-64 w-64 rounded-full bg-amber-500 blur-3xl opacity-10 group-hover:opacity-25 transition-opacity duration-700" />
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -77,7 +130,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             </a>
           </div>
         </div>
-      </div>
+      </SpotlightCard>
 
       {/* Official Channels Roster */}
       <div className="space-y-6">
@@ -92,7 +145,11 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 1. TELEGRAM (#1 PRIORITY) */}
-          <div className="group rounded-2xl border-2 border-[#229ED9]/80 bg-gradient-to-b from-[#229ED9]/15 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_0_35px_rgba(34,158,217,0.25)] hover:shadow-[0_15px_50px_rgba(34,158,217,0.45)] hover:border-[#229ED9] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+          <SpotlightCard
+            spotlightColor="rgba(34, 158, 217, 0.35)"
+            spotlightRadius={380}
+            className="group rounded-2xl border-2 border-[#229ED9]/80 bg-gradient-to-b from-[#229ED9]/15 via-zinc-950 to-zinc-950 p-6 shadow-[0_0_35px_rgba(34,158,217,0.25)] hover:shadow-[0_15px_50px_rgba(34,158,217,0.45)] hover:border-[#229ED9] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out"
+          >
             {/* Subtle interactive radiant glow on hover */}
             <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-[#229ED9] blur-3xl opacity-20 group-hover:opacity-45 transition-opacity duration-500" />
 
@@ -140,7 +197,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
               <button
                 onClick={() => handleCopy(SOCIAL_MEDIA_HANDLES.telegram.handle, 'tg-page')}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 {copiedKey === 'tg-page' ? (
                   <>
@@ -165,10 +222,14 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
-          </div>
+          </SpotlightCard>
 
           {/* 2. X / TWITTER */}
-          <div className="group rounded-2xl border border-white/20 hover:border-white/60 bg-gradient-to-b from-white/[0.04] via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_45px_rgba(255,255,255,0.12)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+          <SpotlightCard
+            spotlightColor="rgba(255, 255, 255, 0.18)"
+            spotlightRadius={380}
+            className="group rounded-2xl border border-white/20 hover:border-white/60 bg-gradient-to-b from-white/[0.04] via-zinc-950 to-zinc-950 p-6 shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_45px_rgba(255,255,255,0.14)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out"
+          >
             {/* Subtle interactive radiant glow on hover */}
             <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-white blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500" />
             <div className="space-y-4">
@@ -210,7 +271,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
               <button
                 onClick={() => handleCopy(SOCIAL_MEDIA_HANDLES.x.handle, 'x-page')}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 {copiedKey === 'x-page' ? (
                   <>
@@ -235,10 +296,14 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
-          </div>
+          </SpotlightCard>
 
           {/* 3. INSTAGRAM */}
-          <div className="group rounded-2xl border border-pink-500/30 hover:border-pink-500/70 bg-gradient-to-b from-[#E4405F]/10 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_50px_rgba(228,64,95,0.38)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+          <SpotlightCard
+            spotlightColor="rgba(228, 64, 95, 0.32)"
+            spotlightRadius={380}
+            className="group rounded-2xl border border-pink-500/30 hover:border-pink-500/70 bg-gradient-to-b from-[#E4405F]/10 via-zinc-950 to-zinc-950 p-6 shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_50px_rgba(228,64,95,0.38)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out"
+          >
             {/* Subtle interactive radiant glow on hover */}
             <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-gradient-to-br from-[#833AB4] via-[#FD1D1D] to-[#F77737] blur-3xl opacity-10 group-hover:opacity-35 transition-opacity duration-500" />
             <div className="space-y-4">
@@ -280,7 +345,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
               <button
                 onClick={() => handleCopy(SOCIAL_MEDIA_HANDLES.instagram.handle, 'ig-page')}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 {copiedKey === 'ig-page' ? (
                   <>
@@ -305,10 +370,14 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
-          </div>
+          </SpotlightCard>
 
           {/* 4. FACEBOOK */}
-          <div className="group rounded-2xl border border-blue-500/30 hover:border-blue-500/70 bg-gradient-to-b from-[#1877F2]/10 via-zinc-950 to-zinc-950 p-6 flex flex-col justify-between shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_50px_rgba(24,119,242,0.38)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out relative overflow-hidden">
+          <SpotlightCard
+            spotlightColor="rgba(24, 119, 242, 0.32)"
+            spotlightRadius={380}
+            className="group rounded-2xl border border-blue-500/30 hover:border-blue-500/70 bg-gradient-to-b from-[#1877F2]/10 via-zinc-950 to-zinc-950 p-6 shadow-[0_4px_25px_rgba(0,0,0,0.5)] hover:shadow-[0_15px_50px_rgba(24,119,242,0.38)] hover:scale-[1.018] hover:-translate-y-1 transition-all duration-300 ease-out"
+          >
             {/* Subtle interactive radiant glow on hover */}
             <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-[#1877F2] blur-3xl opacity-10 group-hover:opacity-35 transition-opacity duration-500" />
             <div className="space-y-4">
@@ -350,7 +419,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-3">
               <button
                 onClick={() => handleCopy(SOCIAL_MEDIA_HANDLES.facebook.handle, 'fb-page')}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 {copiedKey === 'fb-page' ? (
                   <>
@@ -375,7 +444,7 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
-          </div>
+          </SpotlightCard>
         </div>
       </div>
 

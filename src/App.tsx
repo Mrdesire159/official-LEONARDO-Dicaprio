@@ -24,6 +24,7 @@ import {
 import { ParticleBackground } from './components/ParticleBackground';
 import { CursorGlow } from './components/CursorGlow';
 import { CinematicScrollProgressBar } from './components/CinematicScrollProgressBar';
+import { CinematicLandingIntro } from './components/CinematicLandingIntro';
 import { Navbar } from './components/Navbar';
 import { HeroOrbital } from './components/HeroOrbital';
 import { FilmReelTimeline } from './components/FilmReelTimeline';
@@ -55,6 +56,9 @@ export default function App() {
   const [isSocialBallOpen, setIsSocialBallOpen] = useState(false);
   const [isOwnerAdminOpen, setIsOwnerAdminOpen] = useState(false);
   const [ambientAudioPlaying, setAmbientAudioPlaying] = useState(false);
+
+  // Full-Screen Cinematic Landing Intro state
+  const [showLandingIntro, setShowLandingIntro] = useState<boolean>(true);
 
   // User requirement: "let the social media accouint be the first to pop up while opeing the site with a warning note saying this is one and only Leonardo DiCaprio social media and site report tany imposter to the telegram chanel"
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState<boolean>(true);
@@ -346,12 +350,17 @@ export default function App() {
     const map: Record<string, PageId> = {
       '#biography': 'biography',
       '#film-reel': 'filmography',
+      '#filmography': 'filmography',
       '#awards': 'filmography',
       '#vip-store': 'vip-guild',
+      '#vip-guild': 'vip-guild',
       '#gallery': 'gallery',
+      '#portraits': 'gallery',
       '#testimonials': 'testimonials',
       '#official-channels': 'verification',
+      '#verification': 'verification',
       '#multiverse': 'home',
+      '#home': 'home',
     };
     const targetPage = map[sectionId];
     if (targetPage) {
@@ -495,7 +504,7 @@ export default function App() {
         {activePage === 'filmography' && (
           <div className="w-full flex flex-col items-center animate-in fade-in duration-300">
             <FilmReelTimeline currentTheme={currentTheme} />
-            <OrbitingAwards currentTheme={currentTheme} />
+            <OrbitingAwards currentTheme={currentTheme} reducedMotion={reducedMotion} />
 
             {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
             <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
@@ -757,6 +766,15 @@ export default function App() {
         onClose={() => setIsSocialBallOpen(false)}
         currentTheme={currentTheme}
       />
+
+      {/* Full-Screen Cinematic Landing Animation */}
+      {showLandingIntro && (
+        <CinematicLandingIntro
+          currentTheme={currentTheme}
+          reducedMotion={reducedMotion}
+          onComplete={() => setShowLandingIntro(false)}
+        />
+      )}
     </div>
   );
 }
