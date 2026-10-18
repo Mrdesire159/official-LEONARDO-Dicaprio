@@ -14,9 +14,10 @@ interface OrbitingAwardsProps {
   reducedMotion?: boolean;
 }
 
-export function OrbitingAwards({ currentTheme }: OrbitingAwardsProps) {
-  const [angle] = useState(0);
+export function OrbitingAwards({ currentTheme, reducedMotion = false }: OrbitingAwardsProps) {
+  const [angle, setAngle] = useState(0);
   const [selectedAward, setSelectedAward] = useState<AwardMedal>(ORBITING_AWARDS[0]);
+  const [hoveredAwardId, setHoveredAwardId] = useState<string | null>(null);
   const [isMobileScreen, setIsMobileScreen] = useState(false);
 
   const themeConfig = THEME_CONFIGS[currentTheme];
@@ -29,6 +30,15 @@ export function OrbitingAwards({ currentTheme }: OrbitingAwardsProps) {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Smooth orbital motion that gently pauses when hovering over any individual award
+  useEffect(() => {
+    if (reducedMotion || hoveredAwardId !== null) return;
+    const interval = setInterval(() => {
+      setAngle((prev) => (prev + 0.35) % 360);
+    }, 40);
+    return () => clearInterval(interval);
+  }, [reducedMotion, hoveredAwardId]);
 
   return (
     <section id="awards" className="relative w-full py-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-black/80">
@@ -91,34 +101,42 @@ export function OrbitingAwards({ currentTheme }: OrbitingAwardsProps) {
               const isSelected = selectedAward.id === award.id;
               const zIndex = y > 0 ? 25 : 5;
 
+              const isHovered = hoveredAwardId === award.id;
+
               return (
                 <div
                   key={award.id}
                   className="absolute transition-transform duration-75 cursor-pointer"
                   style={{
                     transform: `translate3d(${x}px, ${y}px, 0)`,
-                    zIndex,
+                    zIndex: isHovered || isSelected ? 40 : zIndex,
                   }}
+                  onMouseEnter={() => setHoveredAwardId(award.id)}
+                  onMouseLeave={() => setHoveredAwardId(null)}
                   onClick={() => setSelectedAward(award)}
                 >
                   <div
                     className={`group relative flex items-center justify-center rounded-full p-2.5 transition-all duration-300 ${
                       isSelected
-                        ? 'border-2 border-amber-300 bg-amber-400/30 scale-125 ring-4 ring-amber-400/40'
-                        : 'border border-amber-400/40 bg-zinc-950/90 hover:scale-110 hover:border-amber-300'
+                        ? 'border-2 border-amber-300 bg-amber-400/30 scale-125 ring-4 ring-amber-400/40 shadow-[0_0_35px_rgba(251,191,36,0.85)]'
+                        : 'border border-amber-400/40 bg-zinc-950/90 hover:scale-120 hover:border-amber-300 hover:shadow-[0_0_30px_rgba(251,191,36,0.7),0_0_55px_rgba(245,158,11,0.35)]'
                     }`}
-                    style={{
-                      boxShadow: isSelected
-                        ? '0 0 30px rgba(212, 175, 55, 0.8)'
-                        : '0 0 15px rgba(0, 0, 0, 0.7)',
-                    }}
                   >
-                    <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/80 text-amber-300">
-                      <Award className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:rotate-12" />
+                    {/* Subtle Golden Pulse Aura on Hover */}
+                    <div className="pointer-events-none absolute -inset-3 rounded-full bg-amber-400/35 blur-lg opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-300" />
+
+                    {/* Subtle Holographic Shimmer Sweep on Hover */}
+                    <div className="pointer-events-none absolute inset-0 rounded-full hologram-shimmer opacity-0 group-hover:opacity-75 transition-opacity duration-300 overflow-hidden" />
+
+                    {/* Floating Sparkle on Hover */}
+                    <Sparkles className="pointer-events-none absolute -top-2.5 -right-2.5 h-4 w-4 text-amber-300 opacity-0 group-hover:opacity-100 group-hover:animate-spin-slow transition-opacity duration-300 drop-shadow-[0_0_8px_#fde047]" />
+
+                    <div className="relative z-10 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/80 text-amber-300 group-hover:text-amber-200 transition-colors">
+                      <Award className="h-5 w-5 sm:h-6 sm:w-6 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
                     </div>
 
                     {/* Medal Tooltip Chip */}
-                    <div className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black/95 px-2 py-0.5 text-[9px] font-bold text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity border border-white/20 shadow-lg">
+                    <div className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/95 px-2.5 py-0.5 text-[9px] font-bold text-amber-200 opacity-0 group-hover:opacity-100 transition-all duration-300 border border-amber-400/50 shadow-xl group-hover:-translate-y-0.5">
                       {award.organization.split(' ')[0]} {award.year}
                     </div>
                   </div>

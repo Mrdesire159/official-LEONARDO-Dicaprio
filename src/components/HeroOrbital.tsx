@@ -17,7 +17,10 @@ import {
   ExternalLink,
   Bot,
   MessageSquare,
-  Compass
+  Compass,
+  User,
+  Image,
+  ShieldAlert
 } from 'lucide-react';
 import { LuxuryTheme, PhotoAsset } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
@@ -263,62 +266,62 @@ export function HeroOrbital({
     setIsDragging(false);
   };
 
-  // 5 synchronized orbital pods
+  // 5 synchronized orbital pods matching the updated site sections
   const orbitalPods = [
     {
-      id: 'film-reel',
-      title: 'Film Reel Timeline',
-      subtitle: '30+ Years of Masterpieces',
-      tag: 'Cerebral Cinema',
-      icon: Film,
+      id: 'biography',
+      title: 'Biography',
+      subtitle: 'Human Journey & Planetary Leadership',
+      tag: 'Earth Alliance',
+      icon: User,
       angleOffset: 0,
       radius: 260,
-      color: '#f59e0b',
-      target: '#film-reel',
-    },
-    {
-      id: 'awards',
-      title: 'Academy Awards & Honors',
-      subtitle: 'Oscar, BAFTA & 3x Globes',
-      tag: 'Trophy Gallery',
-      icon: Award,
-      angleOffset: 72,
-      radius: 275,
-      color: '#eab308',
-      target: '#awards',
-    },
-    {
-      id: 'vip-store',
-      title: 'Meet & Greet VIP Store',
-      subtitle: 'Gold ($10K), Silver ($5K), Platinum ($1K)',
-      tag: 'VIP Cards',
-      icon: CreditCard,
-      angleOffset: 144,
-      radius: 260,
-      color: '#38bdf8',
-      target: '#vip-store',
-    },
-    {
-      id: 'earth-alliance',
-      title: 'Earth Alliance & UN Peace',
-      subtitle: '$100M+ Conservation Defense',
-      tag: 'Environmental Mission',
-      icon: Globe,
-      angleOffset: 216,
-      radius: 280,
       color: '#10b981',
       target: '#biography',
     },
     {
-      id: 'archival-vault',
-      title: 'Archival Vault Memorabilia',
-      subtitle: 'Signed Scripts & 35mm Cells',
-      tag: 'Authentic Rarities',
-      icon: Archive,
+      id: 'film-reel',
+      title: 'Film Reel',
+      subtitle: '30+ Years of Masterpieces & Honors',
+      tag: 'Cerebral Cinema',
+      icon: Film,
+      angleOffset: 72,
+      radius: 275,
+      color: '#f59e0b',
+      target: '#film-reel',
+    },
+    {
+      id: 'vip-guild',
+      title: 'VIP Guild',
+      subtitle: 'Gold, Silver & Platinum Memberships',
+      tag: 'VIP Sanctuary',
+      icon: CreditCard,
+      angleOffset: 144,
+      radius: 260,
+      color: '#38bdf8',
+      target: '#vip-guild',
+    },
+    {
+      id: 'gallery',
+      title: 'Portraits',
+      subtitle: 'High-Res Cinematic Portrait Salon',
+      tag: 'Portrait Salon',
+      icon: Image,
+      angleOffset: 216,
+      radius: 280,
+      color: '#eab308',
+      target: '#gallery',
+    },
+    {
+      id: 'verification',
+      title: 'Verification & Warning',
+      subtitle: 'Zero-Tolerance Imposter Advisory',
+      tag: 'Official Security',
+      icon: ShieldAlert,
       angleOffset: 288,
       radius: 265,
       color: '#f43f5e',
-      target: '#vip-store',
+      target: '#verification',
     },
   ];
 
@@ -502,9 +505,6 @@ export function HeroOrbital({
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: pod.color }}>
-                      {pod.tag}
-                    </span>
                     <h3 className="font-cinzel text-sm font-bold text-white">
                       {pod.title}
                     </h3>

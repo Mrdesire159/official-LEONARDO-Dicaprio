@@ -178,3 +178,38 @@
   background: #d4af37;
 }
 
+/* Cinematic Film Reel Static & Projector Effects */
+@keyframes filmFlicker {
+  0%, 100% { opacity: 0.35; }
+  20% { opacity: 0.28; }
+  40% { opacity: 0.38; }
+  60% { opacity: 0.25; }
+  80% { opacity: 0.34; }
+}
+
+@keyframes filmScratch {
+  0% { transform: translateX(0); opacity: 0.15; }
+  25% { transform: translateX(-12px); opacity: 0.3; }
+  50% { transform: translateX(20px); opacity: 0.1; }
+  75% { transform: translateX(-24px); opacity: 0.35; }
+  100% { transform: translateX(0); opacity: 0.15; }
+}
+
+@keyframes beamFlare {
+  0% { transform: scaleX(0.7) scaleY(0.9); opacity: 0.2; }
+  50% { transform: scaleX(1.15) scaleY(1.05); opacity: 0.45; }
+  100% { transform: scaleX(0.7) scaleY(0.9); opacity: 0.2; }
+}
+
+.animate-film-flicker {
+  animation: filmFlicker 0.18s steps(2) infinite;
+}
+
+.animate-film-scratch {
+  animation: filmScratch 0.35s steps(4) infinite;
+}
+
+.animate-beam-flare {
+  animation: beamFlare 4.5s ease-in-out infinite;
+}
+
