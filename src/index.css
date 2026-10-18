@@ -157,6 +157,11 @@
   transition-duration: 0.01ms !important;
 }
 
+/* Hide the hosting badge injected by Netlify. */
+#netlify-badge {
+  display: none !important;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
