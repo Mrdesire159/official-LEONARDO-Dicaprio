@@ -112,20 +112,18 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             <div className="rounded-xl bg-black/60 border border-white/10 p-3.5 text-xs text-amber-200 flex items-start gap-2.5">
               <Flag className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
               <span>
-                <strong>Action Required:</strong> Encountered a suspicious account, fake message, or imposter? Forward the screenshot and profile link immediately to our official Telegram channel: <strong>{SOCIAL_MEDIA_HANDLES.telegram.handle}</strong>.
+                <strong>Action Required:</strong> Encountered a suspicious account, fake message, or imposter? Forward the screenshot and profile link immediately to our official security desk: <strong className="text-white select-all">offcailleonardodicaprio@gmail.com</strong>.
               </span>
             </div>
           </div>
 
-          <div className="shrink-0 w-full lg:w-auto">
+          <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <a
-              href={SOCIAL_MEDIA_HANDLES.telegram.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full lg:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-[#229ED9] hover:bg-[#1f8fc4] text-white px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(34,158,217,0.5)] hover:scale-105"
+              href="mailto:offcailleonardodicaprio@gmail.com?subject=Imposter%20Report%20-%20Leonardo%20DiCaprio%20Official&body=Please%20attach%20the%20fake%20profile%20link%20and%20screenshot%20evidence%20here%3A"
+              className="w-full lg:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95"
             >
-              <Send className="h-5 w-5" />
-              <span>Report Imposter on Telegram</span>
+              <Mail className="h-5 w-5" />
+              <span>Report to offcailleonardodicaprio@gmail.com</span>
               <ExternalLink className="h-4 w-4" />
             </a>
           </div>
@@ -466,11 +464,11 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             </p>
           </div>
 
-          <div className="group space-y-2 border-l-2 border-[#229ED9]/60 pl-4 py-3 pr-3 rounded-r-xl transition-all duration-300 hover:bg-[#229ED9]/[0.04] hover:shadow-[0_4px_25px_rgba(34,158,217,0.15)] hover:border-[#229ED9] hover:translate-x-1">
-            <span className="text-xs font-mono text-[#229ED9] font-bold uppercase">Step 02</span>
-            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-cyan-300 transition-colors">Forward to Telegram</h4>
+          <div className="group space-y-2 border-l-2 border-amber-400/60 pl-4 py-3 pr-3 rounded-r-xl transition-all duration-300 hover:bg-amber-400/[0.04] hover:shadow-[0_4px_25px_rgba(245,158,11,0.15)] hover:border-amber-400 hover:translate-x-1">
+            <span className="text-xs font-mono text-amber-400 font-bold uppercase">Step 02</span>
+            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-amber-300 transition-colors">Forward to Security Desk</h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Open the official Telegram channel at <strong>t.me/leonardodicap1974</strong> and submit the evidence directly to our security moderation team.
+              Email our official security desk directly at <strong className="text-white select-all">offcailleonardodicaprio@gmail.com</strong>, and submit all evidence for immediate verification.
             </p>
           </div>
 

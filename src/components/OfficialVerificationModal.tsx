@@ -11,10 +11,11 @@ import {
   ArrowRight,
   Globe,
   Lock,
-  Flag
+  Flag,
+  Mail
 } from 'lucide-react';
 import { LuxuryTheme } from '../types';
-import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
+import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES, OFFICIAL_SECURITY_EMAIL } from '../data/diCaprioData';
 
 interface OfficialVerificationModalProps {
   isOpen: boolean;
@@ -105,7 +106,7 @@ export function OfficialVerificationModal({
                     This website and the verified channels listed below are the <strong className="text-white underline decoration-amber-400 underline-offset-2">one and only official</strong> digital presence of Leonardo DiCaprio. Beware of fake accounts, fraudulent agents, and impersonators.
                   </p>
                   <p className="text-[11px] sm:text-sm text-amber-200 font-semibold pt-0.5 sm:pt-1">
-                    Please report any imposter or fraudulent account directly to our official Telegram channel so our security team can issue immediate takedowns.
+                    Please report any imposter or fraudulent account directly to <strong className="text-white select-all underline">offcailleonardodicaprio@gmail.com</strong> or our official security channels so our security team can issue immediate takedowns.
                   </p>
                 </div>
               </div>
@@ -163,14 +164,13 @@ export function OfficialVerificationModal({
 
               <div className="flex items-center gap-2">
                 <a
-                  href={SOCIAL_MEDIA_HANDLES.telegram.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#229ED9] hover:bg-[#1f8fc4] text-white px-3.5 py-2 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(34,158,217,0.5)] active:scale-95"
+                  href={`mailto:${OFFICIAL_SECURITY_EMAIL}?subject=Impostor%20Report%20-%20Leonardo%20DiCaprio%20Official&body=Please%20provide%20the%20impostor%20profile%20link%20and%20screenshot%20evidence%3A`}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#229ED9] hover:bg-[#1f8fc4] text-white px-3.5 py-2 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(34,158,217,0.5)] active:scale-95 text-center"
+                  title={`Report Impostor to ${OFFICIAL_SECURITY_EMAIL}`}
                 >
-                  <Flag className="h-3.5 w-3.5" />
-                  <span>Report Imposter / Join Channel</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span>Report Impostor to {OFFICIAL_SECURITY_EMAIL}</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                 </a>
               </div>
             </div>

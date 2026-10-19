@@ -1335,6 +1335,8 @@ export const SOCIAL_MEDIA_HANDLES = {
   },
 };
 
+export const OFFICIAL_SECURITY_EMAIL = 'offcailleonardodicaprio@gmail.com';
+
 export const DEFAULT_USER_PROFILE = {
   name: '',
   email: '',

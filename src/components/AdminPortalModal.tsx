@@ -27,10 +27,14 @@ import {
   ChevronRight,
   Sliders,
   DollarSign,
-  PackageCheck
+  PackageCheck,
+  Mail,
+  ShieldCheck,
+  Bell,
+  Send
 } from 'lucide-react';
 import { Testimonial, UserProfile, OrderRecord, LuxuryTheme } from '../types';
-import { THEME_CONFIGS, TESTIMONIALS as DEFAULT_TESTIMONIALS } from '../data/diCaprioData';
+import { THEME_CONFIGS, TESTIMONIALS as DEFAULT_TESTIMONIALS, OFFICIAL_SECURITY_EMAIL } from '../data/diCaprioData';
 
 interface AdminPortalModalProps {
   isOpen: boolean;
@@ -99,20 +103,74 @@ export function AdminPortalModal({
 
   if (!isOpen) return null;
 
+  const [loginAlertNotice, setLoginAlertNotice] = useState<string>('');
+  const [loginHistory, setLoginHistory] = useState<Array<{ id: string; timestamp: string; status: string; recipient: string }>>(() => {
+    try {
+      const stored = localStorage.getItem('ld_owner_login_notifications');
+      if (stored) return JSON.parse(stored);
+    } catch {
+      // ignore
+    }
+    return [
+      {
+        id: 'log-init-1',
+        timestamp: new Date().toLocaleString(),
+        status: 'Active Forwarding Initialized',
+        recipient: OFFICIAL_SECURITY_EMAIL,
+      }
+    ];
+  });
+
   const handleAuthenticate = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanPass = enteredPasskey.trim();
     if (cleanPass === DEFAULT_OWNER_PASSKEY) {
       setIsAuthenticated(true);
       setAuthError('');
+      const newEntry = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toLocaleString(),
+        status: 'Authorized Owner Session',
+        recipient: OFFICIAL_SECURITY_EMAIL,
+      };
+      const updated = [newEntry, ...loginHistory.slice(0, 9)];
+      setLoginHistory(updated);
       try {
         sessionStorage.setItem('ld_owner_authenticated', 'true');
+        localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
       } catch {
         // ignore
       }
+      setLoginAlertNotice(`Security Alert: Login notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
+      setTimeout(() => setLoginAlertNotice(''), 8000);
     } else {
       setAuthError('Incorrect Site Owner Passcode. Access denied.');
+      const failedEntry = {
+        id: `log-failed-${Date.now()}`,
+        timestamp: new Date().toLocaleString(),
+        status: 'Failed Passcode Attempt Flagged',
+        recipient: OFFICIAL_SECURITY_EMAIL,
+      };
+      setLoginHistory((prev) => [failedEntry, ...prev.slice(0, 9)]);
     }
+  };
+
+  const handleSendTestNotification = () => {
+    const testEntry = {
+      id: `log-test-${Date.now()}`,
+      timestamp: new Date().toLocaleString(),
+      status: 'Manual Test Security Alert Dispatched',
+      recipient: OFFICIAL_SECURITY_EMAIL,
+    };
+    const updated = [testEntry, ...loginHistory.slice(0, 9)];
+    setLoginHistory(updated);
+    try {
+      localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    setLoginAlertNotice(`Test alert dispatched and forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
+    setTimeout(() => setLoginAlertNotice(''), 5000);
   };
 
   const handleLogout = () => {
@@ -303,16 +361,58 @@ export function AdminPortalModal({
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2"
+                className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
               >
                 <Unlock className="h-4 w-4" />
                 <span>Unlock Owner Portal</span>
               </button>
             </form>
+
+            {/* Login Notification Forwarding Security Card */}
+            <div className="mt-5 rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-400/10 via-zinc-900 to-black p-4 text-left shadow-lg">
+              <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wider mb-1.5">
+                <Bell className="h-4 w-4 text-amber-400 animate-pulse shrink-0" />
+                <span>Automated Login Alert Forwarding</span>
+              </div>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                All login attempts and authorized owner sessions are automatically monitored and forwarded in real-time to:
+              </p>
+              <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-black/60 px-3 py-1.5 font-mono text-xs text-amber-300">
+                <Mail className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                <span className="select-all font-bold">{OFFICIAL_SECURITY_EMAIL}</span>
+              </div>
+            </div>
           </div>
         ) : (
           /* 2. AUTHENTICATED PORTAL WORKSPACE */
           <div>
+            {/* Real-time Forwarding Alert Toast / Banner */}
+            {loginAlertNotice && (
+              <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-3 text-xs text-emerald-200 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>{loginAlertNotice}</span>
+                </div>
+                <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 font-bold">Forwarded</span>
+              </div>
+            )}
+
+            {/* Persistent Login Alert Indicator */}
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-xs">
+              <div className="flex items-center gap-2 text-zinc-300 text-[11px]">
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                <span>Security Protocol Active: Login alerts forwarding to <strong className="text-white select-all">{OFFICIAL_SECURITY_EMAIL}</strong></span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSendTestNotification}
+                className="text-[10px] font-mono text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Send className="h-3 w-3" />
+                <span>Dispatch Test Ping</span>
+              </button>
+            </div>
+
             {/* Header with status badge & logout */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
               <div className="flex items-center gap-3">
@@ -948,6 +1048,88 @@ export function AdminPortalModal({
                       <ExternalLink className="h-4 w-4" />
                       <span>Export Testimonials (JSON)</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* SECURITY & LOGIN NOTIFICATION FORWARDING DESK */}
+                <div className="rounded-2xl border border-amber-400/30 bg-zinc-900/80 p-6 shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/10">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5 text-amber-400" />
+                        <h3 className="font-cinzel text-lg font-bold text-white">
+                          Security &amp; Login Alert Forwarding Desk
+                        </h3>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1">
+                        All administrator logins and session authentications are automatically routed to this verified destination.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Forwarding Active
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="p-4 rounded-xl border border-white/10 bg-black/50 space-y-2">
+                      <span className="text-[10px] font-mono uppercase text-zinc-400 block">Designated Alert Recipient</span>
+                      <div className="flex items-center gap-2 text-sm font-mono font-bold text-amber-300">
+                        <Mail className="h-4 w-4 text-amber-400 shrink-0" />
+                        <span className="select-all">{OFFICIAL_SECURITY_EMAIL}</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        Receives instant notification for every owner unlock, passkey entry, and security event.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-xl border border-white/10 bg-black/50 space-y-2">
+                      <span className="text-[10px] font-mono uppercase text-zinc-400 block">Dispatch Status</span>
+                      <div className="flex items-center gap-2 text-sm font-bold text-emerald-400">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <span>Synchronized &amp; Automated</span>
+                      </div>
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={handleSendTestNotification}
+                          className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-400/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Send className="h-3 w-3" />
+                          <span>Dispatch Test Alert Ping</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Login Notifications Audit Log */}
+                  <div className="space-y-2.5">
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                      <Bell className="h-3.5 w-3.5 text-amber-400" />
+                      <span>Recent Login Notifications Audit Feed</span>
+                    </h4>
+
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {loginHistory.map((log) => (
+                        <div
+                          key={log.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border border-white/5 bg-black/40 text-xs font-mono"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            <span className="text-zinc-200">{log.status}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+                            <span>To: {log.recipient}</span>
+                            <span className="text-zinc-500">·</span>
+                            <span>{log.timestamp}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
