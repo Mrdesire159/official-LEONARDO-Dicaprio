@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { PageId, LuxuryTheme } from '../types';
 import { THEME_CONFIGS } from '../data/diCaprioData';
 import {
@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   Globe,
   CornerUpLeft,
+  Shield
 } from 'lucide-react';
 
 interface PageNavigationHeaderProps {
@@ -19,6 +20,7 @@ interface PageNavigationHeaderProps {
   onGoBack: () => void;
   currentTheme: LuxuryTheme;
   historyLength?: number;
+  onOpenAdmin?: () => void;
 }
 
 const PAGE_DEFS: { id: PageId; label: string; shortLabel: string; icon: typeof User }[] = [
@@ -36,8 +38,34 @@ export function PageNavigationHeader({
   onSelectPage,
   onGoBack,
   currentTheme,
+  onOpenAdmin,
 }: PageNavigationHeaderProps) {
   const themeConfig = THEME_CONFIGS[currentTheme];
+
+  const [isOwnerVisible, setIsOwnerVisible] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        return (
+          localStorage.getItem('ld_owner_mode') === 'true' ||
+          sessionStorage.getItem('ld_owner_authenticated') === 'true'
+        );
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleOwnerEvent = (e: Event) => {
+      const detail = (e as CustomEvent<boolean>).detail;
+      if (typeof detail === 'boolean') {
+        setIsOwnerVisible(detail);
+      }
+    };
+    window.addEventListener('owner-mode-changed', handleOwnerEvent);
+    return () => window.removeEventListener('owner-mode-changed', handleOwnerEvent);
+  }, []);
 
   // Keyboard "Back Key" support (Escape and Backspace when not in an input field)
   useEffect(() => {
@@ -97,8 +125,18 @@ export function PageNavigationHeader({
             </button>
           </div>
 
-          {/* Current Page Tag with Return Hint */}
+          {/* Current Page Tag & Admin Quick Access */}
           <div className="flex items-center gap-2 text-xs text-zinc-400 ml-auto">
+            {onOpenAdmin && isOwnerVisible && (
+              <button
+                onClick={onOpenAdmin}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20 px-2.5 py-1 text-xs font-bold text-amber-300 transition-all cursor-pointer shadow-xs active:scale-95"
+                title="Site Owner Admin Portal (Visible exclusively to you)"
+              >
+                <Shield className="h-3 w-3 text-amber-400" />
+                <span>Admin</span>
+              </button>
+            )}
             <span className="hidden md:inline font-mono text-[11px] text-zinc-500 uppercase tracking-widest">
               Current Page:
             </span>

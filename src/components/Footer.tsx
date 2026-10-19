@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   ArrowUp,
   ShieldCheck,
@@ -21,6 +22,31 @@ export function Footer({
   onOpenVerificationModal,
 }: FooterProps) {
   const themeConfig = THEME_CONFIGS[currentTheme];
+
+  const [isOwnerVisible, setIsOwnerVisible] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        return (
+          localStorage.getItem('ld_owner_mode') === 'true' ||
+          sessionStorage.getItem('ld_owner_authenticated') === 'true'
+        );
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleOwnerEvent = (e: Event) => {
+      const detail = (e as CustomEvent<boolean>).detail;
+      if (typeof detail === 'boolean') {
+        setIsOwnerVisible(detail);
+      }
+    };
+    window.addEventListener('owner-mode-changed', handleOwnerEvent);
+    return () => window.removeEventListener('owner-mode-changed', handleOwnerEvent);
+  }, []);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -141,6 +167,26 @@ export function Footer({
                 <span>·</span>
                 <button
                   onClick={() => {
+                    onNavigatePage('gallery');
+                    scrollToTop();
+                  }}
+                  className="hover:text-amber-300 transition-colors"
+                >
+                  Portraits
+                </button>
+                <span>·</span>
+                <button
+                  onClick={() => {
+                    onNavigatePage('testimonials');
+                    scrollToTop();
+                  }}
+                  className="hover:text-amber-300 transition-colors"
+                >
+                  50 Testimonials
+                </button>
+                <span>·</span>
+                <button
+                  onClick={() => {
                     onNavigatePage('verification');
                     scrollToTop();
                   }}
@@ -167,17 +213,18 @@ export function Footer({
                 </button>
               </>
             )}
-            {onOpenAdmin && (
+            {onOpenAdmin && isOwnerVisible && (
               <>
                 <span>·</span>
                 <button
                   onClick={onOpenAdmin}
-                  className="hover:text-amber-300 text-zinc-500 font-mono text-[10px] transition-colors flex items-center gap-1 opacity-40 hover:opacity-100"
-                  title="Site Owner Admin"
-                  aria-label="Site Owner Admin"
+                  className="hover:text-amber-300 text-amber-400 font-mono text-xs transition-colors flex items-center gap-1.5 font-bold cursor-pointer"
+                  title="Site Owner Admin Portal (Visible exclusively to you)"
+                  aria-label="Site Owner Admin Portal"
                 >
-                  <ShieldCheck className="h-2.5 w-2.5 text-zinc-500" />
-                  <span>adm</span>
+                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Admin Portal</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </button>
               </>
             )}

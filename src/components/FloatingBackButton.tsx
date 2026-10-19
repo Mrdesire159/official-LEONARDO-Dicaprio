@@ -30,8 +30,8 @@ export function FloatingBackButton({
 
   return (
     <div
-      className={`fixed bottom-6 left-4 z-40 transition-all duration-300 ${
-        scrolled ? 'opacity-100 translate-y-0' : 'opacity-85 translate-y-0'
+      className={`fixed bottom-20 sm:bottom-22 left-5 sm:left-8 z-40 transition-all duration-300 ${
+        scrolled ? 'opacity-100 translate-y-0' : 'opacity-90 translate-y-0'
       }`}
     >
       <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/85 backdrop-blur-md p-1 shadow-2xl">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Film,
   Award,
@@ -14,7 +14,8 @@ import {
   Lock,
   Volume2,
   VolumeX,
-  Send
+  Send,
+  Shield
 } from 'lucide-react';
 import { LuxuryTheme, PageId } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
@@ -46,6 +47,105 @@ export function Navbar({
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Owner Mode State: Invisible to public visitors, only visible to me (owner)
+  const [isOwnerVisible, setIsOwnerVisible] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (
+          urlParams.get('admin') === 'true' ||
+          urlParams.get('owner') === 'true' ||
+          window.location.hash === '#admin'
+        ) {
+          localStorage.setItem('ld_owner_mode', 'true');
+          return true;
+        }
+        return (
+          localStorage.getItem('ld_owner_mode') === 'true' ||
+          sessionStorage.getItem('ld_owner_authenticated') === 'true'
+        );
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [ownerNotification, setOwnerNotification] = useState<string | null>(null);
+  const logoClickCountRef = useRef(0);
+  const logoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggleOwnerMode = () => {
+    setIsOwnerVisible((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ld_owner_mode', String(next));
+        window.dispatchEvent(new CustomEvent('owner-mode-changed', { detail: next }));
+      } catch {
+        // ignore
+      }
+      setOwnerNotification(
+        next
+          ? 'Owner Mode Active: Admin Portal button is now visible exclusively to you.'
+          : 'Visitor Mode: Admin Portal button is now hidden from top navigation.'
+      );
+      setTimeout(() => setOwnerNotification(null), 4500);
+      return next;
+    });
+  };
+
+  // Keyboard shortcut for owner: Ctrl+Shift+A or Cmd+Shift+A
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        toggleOwnerMode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Listen to hash changes and owner mode sync
+  useEffect(() => {
+    const handleCustomEvent = (e: Event) => {
+      const detail = (e as CustomEvent<boolean>).detail;
+      if (typeof detail === 'boolean') {
+        setIsOwnerVisible(detail);
+      }
+    };
+    const handleHash = () => {
+      if (window.location.hash === '#admin') {
+        setIsOwnerVisible(true);
+        try {
+          localStorage.setItem('ld_owner_mode', 'true');
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('owner-mode-changed', handleCustomEvent);
+    window.addEventListener('hashchange', handleHash);
+    return () => {
+      window.removeEventListener('owner-mode-changed', handleCustomEvent);
+      window.removeEventListener('hashchange', handleHash);
+    };
+  }, []);
+
+  const handleBrandLogoClick = () => {
+    logoClickCountRef.current += 1;
+    if (logoClickCountRef.current >= 3) {
+      toggleOwnerMode();
+      logoClickCountRef.current = 0;
+    }
+    if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
+    logoTimerRef.current = setTimeout(() => {
+      logoClickCountRef.current = 0;
+    }, 1200);
+
+    handlePageClick('home');
+  };
+
   const themeConfig = THEME_CONFIGS[currentTheme];
 
   const navPages: { pageId: PageId; label: string; icon: typeof User }[] = [
@@ -66,6 +166,14 @@ export function Navbar({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 border-b border-white/10 bg-black/90 backdrop-blur-xl transition-colors duration-500">
+      {/* Dynamic Owner Notification Toast Banner */}
+      {ownerNotification && (
+        <div className="bg-amber-400 text-black px-4 py-1.5 text-center text-xs font-bold font-mono tracking-wide flex items-center justify-center gap-2 shadow-lg animate-in slide-in-from-top-2 duration-200">
+          <Shield className="h-3.5 w-3.5 shrink-0" />
+          <span>{ownerNotification}</span>
+        </div>
+      )}
+
       {/* Top Advisory Bar */}
       <div className="bg-gradient-to-r from-amber-500/20 via-black to-cyan-500/20 border-b border-white/5 px-2.5 sm:px-4 py-1 sm:py-1.5 text-center flex items-center justify-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-zinc-300">
         <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-400 shrink-0" />
@@ -80,13 +188,14 @@ export function Navbar({
       </div>
 
       <div className="mx-auto flex h-14 sm:h-16 lg:h-20 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8">
-        {/* Brand Header */}
+        {/* Brand Header: triple-click LD triggers secret owner view */}
         <button
-          onClick={() => handlePageClick('home')}
-          className="group flex items-center gap-2 sm:gap-3 text-left transition-opacity hover:opacity-90 min-w-0 shrink"
+          onClick={handleBrandLogoClick}
+          title="Leonardo DiCaprio Sanctuary (Owner Shortcut: Ctrl+Shift+A or Triple-Click LD)"
+          className="group flex items-center gap-2 sm:gap-3 text-left transition-opacity hover:opacity-90 min-w-0 shrink cursor-pointer"
         >
           <div
-            className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg border text-xs sm:text-sm font-semibold tracking-widest font-cinzel transition-all duration-300 shrink-0"
+            className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg border text-xs sm:text-sm font-semibold tracking-widest font-cinzel transition-all duration-300 shrink-0 relative"
             style={{
               borderColor: themeConfig.accent,
               boxShadow: themeConfig.neonShadow,
@@ -95,6 +204,9 @@ export function Navbar({
             }}
           >
             LD
+            {isOwnerVisible && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" title="Owner Mode Active" />
+            )}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-cinzel text-xs sm:text-base font-bold tracking-[0.12em] sm:tracking-[0.2em] text-white group-hover:text-amber-200 transition-colors truncate">
@@ -167,16 +279,20 @@ export function Navbar({
           )}
 
 
-          {/* Discreet Smallish Admin Portal Trigger (hidden on phone, accessible in drawer) */}
-          {onOpenAdmin && (
+          {/* Site Owner Admin Portal Button: Invisible to public visitors, visible ONLY to me (owner) */}
+          {onOpenAdmin && isOwnerVisible && (
             <button
               onClick={onOpenAdmin}
-              title="Site Owner Admin"
-              className="hidden sm:flex group h-7 items-center gap-1 rounded border border-white/10 bg-white/[0.03] px-2 text-[10px] font-mono text-zinc-500 hover:text-amber-300 hover:border-amber-400/30 hover:bg-amber-400/10 transition-all opacity-40 hover:opacity-100"
-              aria-label="Site Owner Admin"
+              title="Site Owner Admin Portal (Visible exclusively to you)"
+              className="flex items-center gap-1.5 rounded-lg sm:rounded-xl border border-amber-400/60 bg-amber-400/15 hover:bg-amber-400/30 text-amber-300 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] active:scale-95 cursor-pointer animate-in fade-in"
+              aria-label="Open Site Owner Admin Portal"
             >
-              <Lock className="h-2.5 w-2.5 text-zinc-500 group-hover:text-amber-400 transition-colors" />
-              <span>adm</span>
+              <Shield className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-400 shrink-0" />
+              <span>Admin Portal</span>
+              <span className="hidden sm:inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[9px] font-mono uppercase bg-amber-400 text-black px-1 rounded font-black shrink-0">
+                Me
+              </span>
             </button>
           )}
 
@@ -237,19 +353,24 @@ export function Navbar({
               })}
             </div>
 
-            {/* Mobile Discreet Smallish Admin Trigger */}
-            {onOpenAdmin && (
-              <div className="pt-2 border-t border-white/5 flex justify-end">
+            {/* Mobile Prominent Admin Portal Trigger (Only for owner) */}
+            {onOpenAdmin && isOwnerVisible && (
+              <div className="pt-2 border-t border-white/10">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
                     onOpenAdmin();
                   }}
-                  className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-mono text-zinc-500 hover:text-amber-300 transition-colors opacity-60 hover:opacity-100"
-                  aria-label="Site Owner Admin"
+                  className="flex items-center justify-between w-full rounded-xl border border-amber-400/50 bg-amber-400/10 p-2.5 sm:p-3 text-xs font-bold text-amber-300 hover:bg-amber-400/20 transition-all cursor-pointer shadow-sm"
+                  aria-label="Site Owner Admin Portal"
                 >
-                  <Lock className="h-2.5 w-2.5 text-zinc-500" />
-                  <span>Admin Portal</span>
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>Site Owner Admin Portal</span>
+                  </div>
+                  <span className="text-[10px] font-mono uppercase bg-amber-400 text-black px-1.5 py-0.5 rounded font-black shrink-0">
+                    Me
+                  </span>
                 </button>
               </div>
             )}

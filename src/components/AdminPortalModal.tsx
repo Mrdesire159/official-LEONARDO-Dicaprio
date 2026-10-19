@@ -31,7 +31,9 @@ import {
   Mail,
   ShieldCheck,
   Bell,
-  Send
+  Send,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Testimonial, UserProfile, OrderRecord, LuxuryTheme } from '../types';
 import { THEME_CONFIGS, TESTIMONIALS as DEFAULT_TESTIMONIALS, OFFICIAL_SECURITY_EMAIL } from '../data/diCaprioData';
@@ -61,15 +63,17 @@ export function AdminPortalModal({
   onUpdateOrders,
   currentTheme,
 }: AdminPortalModalProps) {
-  // Auth state
+  // Auth state - defaults to active so the site owner admin portal is immediately available, with lock option
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('ld_owner_authenticated') === 'true';
+      const explicitLocked = localStorage.getItem('ld_owner_locked');
+      if (explicitLocked === 'true') return false;
+      return true; // Keep admin portal active by default
     } catch {
-      return false;
+      return true;
     }
   });
-  const [enteredPasskey, setEnteredPasskey] = useState('');
+  const [enteredPasskey, setEnteredPasskey] = useState(DEFAULT_OWNER_PASSKEY);
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState<'testimonials' | 'visitors' | 'settings'>('testimonials');
 
@@ -99,10 +103,6 @@ export function AdminPortalModal({
     setVisitorForm(userProfile);
   }, [userProfile]);
 
-  const themeConfig = THEME_CONFIGS[currentTheme];
-
-  if (!isOpen) return null;
-
   const [loginAlertNotice, setLoginAlertNotice] = useState<string>('');
   const [loginHistory, setLoginHistory] = useState<Array<{ id: string; timestamp: string; status: string; recipient: string }>>(() => {
     try {
@@ -121,6 +121,31 @@ export function AdminPortalModal({
     ];
   });
 
+  const [isOwnerModeActive, setIsOwnerModeActive] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ld_owner_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleOwnerMode = () => {
+    setIsOwnerModeActive((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ld_owner_mode', String(next));
+        window.dispatchEvent(new CustomEvent('owner-mode-changed', { detail: next }));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const themeConfig = THEME_CONFIGS[currentTheme];
+
+  if (!isOpen) return null;
+
   const handleAuthenticate = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanPass = enteredPasskey.trim();
@@ -136,7 +161,9 @@ export function AdminPortalModal({
       const updated = [newEntry, ...loginHistory.slice(0, 9)];
       setLoginHistory(updated);
       try {
+        localStorage.removeItem('ld_owner_locked');
         sessionStorage.setItem('ld_owner_authenticated', 'true');
+        localStorage.setItem('ld_owner_authenticated', 'true');
         localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
       } catch {
         // ignore
@@ -144,7 +171,7 @@ export function AdminPortalModal({
       setLoginAlertNotice(`Security Alert: Login notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
       setTimeout(() => setLoginAlertNotice(''), 8000);
     } else {
-      setAuthError('Incorrect Site Owner Passcode. Access denied.');
+      setAuthError(`Incorrect Site Owner Passcode. (Authorized Owner Passkey: ${DEFAULT_OWNER_PASSKEY})`);
       const failedEntry = {
         id: `log-failed-${Date.now()}`,
         timestamp: new Date().toLocaleString(),
@@ -153,6 +180,30 @@ export function AdminPortalModal({
       };
       setLoginHistory((prev) => [failedEntry, ...prev.slice(0, 9)]);
     }
+  };
+
+  const handleQuickUnlock = () => {
+    setEnteredPasskey(DEFAULT_OWNER_PASSKEY);
+    setIsAuthenticated(true);
+    setAuthError('');
+    const newEntry = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toLocaleString(),
+      status: 'Instant Verified Owner Access',
+      recipient: OFFICIAL_SECURITY_EMAIL,
+    };
+    const updated = [newEntry, ...loginHistory.slice(0, 9)];
+    setLoginHistory(updated);
+    try {
+      localStorage.removeItem('ld_owner_locked');
+      sessionStorage.setItem('ld_owner_authenticated', 'true');
+      localStorage.setItem('ld_owner_authenticated', 'true');
+      localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    setLoginAlertNotice(`Admin Portal Active: Notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
+    setTimeout(() => setLoginAlertNotice(''), 8000);
   };
 
   const handleSendTestNotification = () => {
@@ -176,7 +227,9 @@ export function AdminPortalModal({
   const handleLogout = () => {
     setIsAuthenticated(false);
     try {
+      localStorage.setItem('ld_owner_locked', 'true');
       sessionStorage.removeItem('ld_owner_authenticated');
+      localStorage.removeItem('ld_owner_authenticated');
     } catch {
       // ignore
     }
@@ -357,15 +410,39 @@ export function AdminPortalModal({
                     {authError}
                   </p>
                 )}
+                <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-zinc-400">
+                  <span>Passkey: <code className="text-amber-300 font-bold bg-amber-400/10 px-1.5 py-0.5 rounded">{DEFAULT_OWNER_PASSKEY}</code></span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnteredPasskey(DEFAULT_OWNER_PASSKEY);
+                      setAuthError('');
+                    }}
+                    className="text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                  >
+                    Insert Key
+                  </button>
+                </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-              >
-                <Unlock className="h-4 w-4" />
-                <span>Unlock Owner Portal</span>
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <Unlock className="h-4 w-4" />
+                  <span>Unlock Owner Portal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleQuickUnlock}
+                  className="rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/25 py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-amber-300 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  title="One-click immediate owner unlock"
+                >
+                  <ShieldCheck className="h-4 w-4 text-amber-400" />
+                  <span>Quick Unlock</span>
+                </button>
+              </div>
             </form>
 
             {/* Login Notification Forwarding Security Card */}
@@ -435,10 +512,28 @@ export function AdminPortalModal({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleOwnerMode}
+                  className="rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20 px-3 py-1.5 text-xs font-semibold text-amber-300 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Toggle Admin button visibility on website top navigation"
+                >
+                  {isOwnerModeActive ? (
+                    <>
+                      <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Admin Button: Visible to Me</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-3.5 w-3.5 text-zinc-400" />
+                      <span>Admin Button: Hidden (Visitors)</span>
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={handleLogout}
-                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition-all flex items-center gap-1.5"
+                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Lock className="h-3.5 w-3.5" />
                   <span>Lock Session</span>

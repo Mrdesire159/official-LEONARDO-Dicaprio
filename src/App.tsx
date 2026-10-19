@@ -83,22 +83,40 @@ export default function App() {
     return 'home';
   });
 
-  // Listen to hash changes in window URL
+  // Listen to hash changes in window URL to keep all sections active
   useEffect(() => {
     const handleHashChange = () => {
       if (window.location.hash) {
-        const hash = window.location.hash.replace('#', '') as PageId;
-        const validPages: PageId[] = [
-          'home',
-          'biography',
-          'filmography',
-          'vip-guild',
-          'gallery',
-          'verification',
-          'testimonials',
-        ];
-        if (validPages.includes(hash)) {
-          setActivePage(hash);
+        const rawHash = window.location.hash.replace('#', '');
+        if (rawHash === 'admin') {
+          setIsOwnerAdminOpen(true);
+          return;
+        }
+        const aliasMap: Record<string, PageId> = {
+          home: 'home',
+          multiverse: 'home',
+          biography: 'biography',
+          bio: 'biography',
+          filmography: 'filmography',
+          'film-reel': 'filmography',
+          films: 'filmography',
+          awards: 'filmography',
+          'vip-guild': 'vip-guild',
+          'vip-store': 'vip-guild',
+          vip: 'vip-guild',
+          store: 'vip-guild',
+          gallery: 'gallery',
+          portraits: 'gallery',
+          photos: 'gallery',
+          verification: 'verification',
+          'official-channels': 'verification',
+          warning: 'verification',
+          testimonials: 'testimonials',
+          reviews: 'testimonials',
+        };
+        const target = aliasMap[rawHash];
+        if (target) {
+          setActivePage(target);
         }
       }
     };
@@ -451,6 +469,7 @@ export default function App() {
           onSelectPage={handleSelectPage}
           onGoBack={handleGoBack}
           currentTheme={currentTheme}
+          onOpenAdmin={() => setIsOwnerAdminOpen(true)}
         />
 
         {/* PAGE 1: SANCTUARY OVERVIEW (HOME) */}

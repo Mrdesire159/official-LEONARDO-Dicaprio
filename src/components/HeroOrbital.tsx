@@ -20,7 +20,8 @@ import {
   Compass,
   User,
   Image,
-  ShieldAlert
+  ShieldAlert,
+  Shield
 } from 'lucide-react';
 import { LuxuryTheme, PhotoAsset } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
@@ -738,17 +739,73 @@ export function HeroOrbital({
         </div>
       </div>
 
-      {/* Orbit Footer Quick-Jump Prompts */}
-      <div className="relative z-10 mt-6 flex flex-wrap items-center justify-center gap-4 px-4 text-xs">
-        <button
-          onClick={() => onNavigateSection('#vip-store')}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 px-6 py-3 font-bold text-black shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
-          style={{ boxShadow: themeConfig.neonShadow }}
-        >
-          <CreditCard className="h-4 w-4" />
-          <span>Gold VIP ($10K) · Silver ($5K) · 24K Sovereign ($25K)</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+      {/* Orbit Footer Quick-Jump Prompts to Keep Every Section Active */}
+      <div className="relative z-10 mt-8 flex flex-col items-center gap-3 w-full max-w-5xl px-4 text-xs">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+          Instant Navigation · All Sections Active
+        </span>
+
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 w-full">
+          <button
+            onClick={() => onNavigateSection('#vip-guild')}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 px-5 py-2.5 font-bold text-black shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+            style={{ boxShadow: themeConfig.neonShadow }}
+          >
+            <CreditCard className="h-4 w-4" />
+            <span>VIP Guild Passes ($5K - $25K)</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('#biography')}
+            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-zinc-900/80 hover:bg-white/10 hover:border-white/30 px-4 py-2.5 font-medium text-zinc-200 hover:text-white transition-all cursor-pointer"
+          >
+            <User className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Biography & Earth Alliance</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('#film-reel')}
+            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-zinc-900/80 hover:bg-white/10 hover:border-white/30 px-4 py-2.5 font-medium text-zinc-200 hover:text-white transition-all cursor-pointer"
+          >
+            <Film className="h-3.5 w-3.5 text-amber-400" />
+            <span>Film Reel & Honors</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('#gallery')}
+            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-zinc-900/80 hover:bg-white/10 hover:border-white/30 px-4 py-2.5 font-medium text-zinc-200 hover:text-white transition-all cursor-pointer"
+          >
+            <Image className="h-3.5 w-3.5 text-yellow-400" />
+            <span>Archival Portraits</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('#verification')}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20 px-4 py-2.5 font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+          >
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+            <span>Verification & Warning</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('#testimonials')}
+            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-zinc-900/80 hover:bg-white/10 hover:border-white/30 px-4 py-2.5 font-medium text-zinc-200 hover:text-white transition-all cursor-pointer"
+          >
+            <Globe className="h-3.5 w-3.5 text-sky-400" />
+            <span>50 Testimonials</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateSection('#admin')}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/30 px-4 py-2.5 font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+            title="Open Site Owner Admin Portal"
+          >
+            <Shield className="h-3.5 w-3.5 text-amber-400" />
+            <span>Admin Portal</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </button>
+        </div>
       </div>
     </section>
   );
