@@ -11,7 +11,6 @@ import {
   Globe,
   Radio,
   FileText,
-  Mail,
   CheckCircle2,
   HelpCircle
 } from 'lucide-react';
@@ -112,18 +111,20 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
             <div className="rounded-xl bg-black/60 border border-white/10 p-3.5 text-xs text-amber-200 flex items-start gap-2.5">
               <Flag className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
               <span>
-                <strong>Action Required:</strong> Encountered a suspicious account, fake message, or imposter? Forward the screenshot and profile link immediately to our official security desk: <strong className="text-white select-all">offcailleonardodicaprio@gmail.com</strong>.
+                <strong>Action Required:</strong> Encountered a suspicious account, fake message, or imposter? Forward the screenshot and profile link immediately to our official Telegram security desk: <strong className="text-white select-all">{SOCIAL_MEDIA_HANDLES.telegram.handle}</strong>.
               </span>
             </div>
           </div>
 
           <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <a
-              href="mailto:offcailleonardodicaprio@gmail.com?subject=Imposter%20Report%20-%20Leonardo%20DiCaprio%20Official&body=Please%20attach%20the%20fake%20profile%20link%20and%20screenshot%20evidence%20here%3A"
-              className="w-full lg:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95"
+              href={SOCIAL_MEDIA_HANDLES.telegram.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full lg:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#229ED9] to-[#1a85b8] hover:from-[#2bb0f0] hover:to-[#229ED9] text-white px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(34,158,217,0.4)] hover:scale-105 active:scale-95"
             >
-              <Mail className="h-5 w-5" />
-              <span>Report to offcailleonardodicaprio@gmail.com</span>
+              <Send className="h-5 w-5" />
+              <span>Report via Telegram {SOCIAL_MEDIA_HANDLES.telegram.handle}</span>
               <ExternalLink className="h-4 w-4" />
             </a>
           </div>
@@ -466,9 +467,9 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
 
           <div className="group space-y-2 border-l-2 border-amber-400/60 pl-4 py-3 pr-3 rounded-r-xl transition-all duration-300 hover:bg-amber-400/[0.04] hover:shadow-[0_4px_25px_rgba(245,158,11,0.15)] hover:border-amber-400 hover:translate-x-1">
             <span className="text-xs font-mono text-amber-400 font-bold uppercase">Step 02</span>
-            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-amber-300 transition-colors">Forward to Security Desk</h4>
+            <h4 className="font-cinzel text-base font-bold text-white group-hover:text-amber-300 transition-colors">Forward to Telegram Desk</h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Email our official security desk directly at <strong className="text-white select-all">offcailleonardodicaprio@gmail.com</strong>, and submit all evidence for immediate verification.
+              Submit directly to our official Telegram desk at <strong className="text-white select-all">{SOCIAL_MEDIA_HANDLES.telegram.handle}</strong>, and transmit all evidence for immediate verification.
             </p>
           </div>
 
