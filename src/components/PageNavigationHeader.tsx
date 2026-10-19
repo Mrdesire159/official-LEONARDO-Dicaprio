@@ -45,10 +45,7 @@ export function PageNavigationHeader({
   const [isOwnerVisible, setIsOwnerVisible] = useState<boolean>(() => {
     try {
       if (typeof window !== 'undefined') {
-        return (
-          localStorage.getItem('ld_owner_mode') === 'true' ||
-          sessionStorage.getItem('ld_owner_authenticated') === 'true'
-        );
+        return localStorage.getItem('ld_owner_mode') === 'true';
       }
       return false;
     } catch {

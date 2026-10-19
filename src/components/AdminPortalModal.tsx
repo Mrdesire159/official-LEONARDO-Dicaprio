@@ -410,19 +410,7 @@ export function AdminPortalModal({
                     {authError}
                   </p>
                 )}
-                <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-zinc-400">
-                  <span>Passkey: <code className="text-amber-300 font-bold bg-amber-400/10 px-1.5 py-0.5 rounded">{DEFAULT_OWNER_PASSKEY}</code></span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEnteredPasskey(DEFAULT_OWNER_PASSKEY);
-                      setAuthError('');
-                    }}
-                    className="text-amber-400 hover:text-amber-300 underline cursor-pointer"
-                  >
-                    Insert Key
-                  </button>
-                </div>
+                {/* Passkey and password display removed for strict owner confidentiality */}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2.5">

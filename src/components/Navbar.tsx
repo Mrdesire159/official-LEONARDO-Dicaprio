@@ -60,10 +60,7 @@ export function Navbar({
           localStorage.setItem('ld_owner_mode', 'true');
           return true;
         }
-        return (
-          localStorage.getItem('ld_owner_mode') === 'true' ||
-          sessionStorage.getItem('ld_owner_authenticated') === 'true'
-        );
+        return localStorage.getItem('ld_owner_mode') === 'true';
       }
       return false;
     } catch {
