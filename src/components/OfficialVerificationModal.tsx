@@ -13,7 +13,9 @@ import {
   Lock,
   Mail,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { LuxuryTheme, ChanneledMessage } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES, OFFICIAL_CONTACT_EMAIL } from '../data/diCaprioData';
@@ -30,10 +32,10 @@ export function OfficialVerificationModal({
   currentTheme,
 }: OfficialVerificationModalProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isEmailDeskExpanded, setIsEmailDeskExpanded] = useState(false);
   const themeConfig = THEME_CONFIGS[currentTheme];
 
   // Direct channel message to Admin Portal form states
-  const [showDispatchForm, setShowDispatchForm] = useState(false);
   const [senderName, setSenderName] = useState('');
   const [senderContact, setSenderContact] = useState('');
   const [category, setCategory] = useState<'imposter_report' | 'vip_inquiry' | 'official_contact' | 'urgent_takedown'>('imposter_report');
@@ -97,7 +99,6 @@ export function OfficialVerificationModal({
     setEvidenceUrl('');
     setTimeout(() => {
       setDispatchSuccess(false);
-      setShowDispatchForm(false);
     }, 4500);
   };
 
@@ -155,96 +156,116 @@ export function OfficialVerificationModal({
                     This website and the verified channels listed below are the <strong className="text-white underline decoration-amber-400 underline-offset-2">one and only official</strong> digital presence of Leonardo DiCaprio. Beware of fake accounts, fraudulent agents, and impersonators.
                   </p>
                   <p className="text-[11px] sm:text-sm text-amber-200 font-semibold pt-0.5 sm:pt-1">
-                    Please report any imposter or fraudulent account directly to our official contact <strong className="text-white select-all underline">{OFFICIAL_CONTACT_EMAIL}</strong> so our security team can issue immediate takedowns.
+                    Please report any imposter or fraudulent account directly to our official contact <strong className="text-white select-all underline">{OFFICIAL_CONTACT_EMAIL}</strong> or via our official Telegram channel so our security team can issue immediate takedowns.
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Featured Priority: Official Contact & Imposter Reporting Desk */}
-          <div className="rounded-xl sm:rounded-2xl border-2 border-amber-400/60 bg-gradient-to-r from-amber-400/15 via-zinc-900/90 to-zinc-950 p-3.5 sm:p-5 shadow-[0_0_30px_rgba(245,158,11,0.25)] relative overflow-hidden">
-            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
-              <span className="rounded-full bg-amber-400 text-black px-2 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider shadow">
-                #1 Official Contact · Report Desk
+          {/* 2nd Display: Official Contact Desk & Direct Channel to Admin Portal */}
+          <div className="rounded-xl sm:rounded-2xl border-2 border-amber-400/60 bg-gradient-to-r from-amber-400/15 via-zinc-900/90 to-zinc-950 p-4 sm:p-5 shadow-[0_0_30px_rgba(245,158,11,0.25)] relative overflow-hidden transition-all duration-300">
+            {/* Clean top header strip for the Official Security & Contact Desk badge */}
+            <div className="flex items-center justify-between pb-2.5 mb-3.5 border-b border-white/10">
+              <span className="rounded-full bg-amber-400 text-black px-3 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest shadow">
+                Official Security &amp; Contact Desk
+              </span>
+              <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                Direct Portal
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-1 sm:mt-0">
-              <div className="flex h-10 w-10 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.5)]">
-                <Mail className="h-5 w-5 sm:h-7 sm:w-7 text-black ml-0.5" />
-              </div>
-
-              <div className="space-y-0.5 sm:space-y-1 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-cinzel text-base sm:text-lg font-bold text-white">
-                    Official Contact &amp; Security Desk
-                  </h3>
-                  <span className="text-[9px] sm:text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-mono font-semibold">
-                    VERIFIED
-                  </span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+                  <Mail className="h-5 w-5 sm:h-6 sm:w-6 text-black ml-0.5" />
                 </div>
-                <p className="text-xs sm:text-sm font-mono text-amber-300 font-bold select-all">
-                  {OFFICIAL_CONTACT_EMAIL}
-                </p>
-                <p className="text-[11px] sm:text-xs text-zinc-300 leading-relaxed">
-                  Direct official communications desk for verified inquiries, urgent communications, and submitting fraudulent account or imposter reports.
-                </p>
+
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-cinzel text-sm sm:text-base font-bold text-white">
+                      Official Contact Desk
+                    </h3>
+                    <span className="text-[9px] sm:text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-mono font-semibold">
+                      VERIFIED
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-mono text-amber-300 font-bold select-all tracking-wide">
+                    {OFFICIAL_CONTACT_EMAIL}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
-              <button
-                onClick={() => handleCopy(OFFICIAL_CONTACT_EMAIL, 'contact-email')}
-                className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
-              >
-                {copiedKey === 'contact-email' ? (
-                  <>
-                    <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
-                    <span className="text-emerald-400">Email Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    <span>Copy {OFFICIAL_CONTACT_EMAIL}</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Action Buttons: Restored Email Official Desk button & toggle to display fully */}
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
                 <button
                   type="button"
-                  onClick={() => setShowDispatchForm(!showDispatchForm)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 px-3.5 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95"
+                  onClick={() => handleCopy(OFFICIAL_CONTACT_EMAIL, 'email-modal')}
+                  className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-white/5"
+                  title="Copy email address"
                 >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span>{showDispatchForm ? 'Close Dispatch Form' : 'Channel Message to Admin'}</span>
+                  {copiedKey === 'email-modal' ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-emerald-400 font-mono text-[11px]">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      <span className="font-mono text-[11px]">Copy</span>
+                    </>
+                  )}
                 </button>
 
+                {/* Restored Email Official Desk Button with generous spacing */}
                 <a
-                  href={`mailto:${OFFICIAL_CONTACT_EMAIL}?subject=Official%20Inquiry%20%2F%20Imposter%20Report%20-%20Leonardo%20DiCaprio&body=Please%20provide%20your%20inquiry%20details%20or%20fake%20profile%20link%20and%20screenshot%20evidence%3A`}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-3.5 py-2 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)] active:scale-95 text-center cursor-pointer"
-                  title={`Email ${OFFICIAL_CONTACT_EMAIL}`}
+                  href={`mailto:${OFFICIAL_CONTACT_EMAIL}`}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 shrink-0"
                 >
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <Mail className="h-3.5 w-3.5" />
                   <span>Email Official Desk</span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  <ExternalLink className="h-3 w-3 ml-0.5" />
                 </a>
+
+                {/* Small toggle button: expands fully only when clicked */}
+                <button
+                  type="button"
+                  onClick={() => setIsEmailDeskExpanded(!isEmailDeskExpanded)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 cursor-pointer shrink-0"
+                  title={isEmailDeskExpanded ? 'Collapse form' : 'Open direct message channel'}
+                >
+                  <Send className="h-3.5 w-3.5 text-amber-400" />
+                  <span>{isEmailDeskExpanded ? 'Close Form' : 'Direct Channel'}</span>
+                  {isEmailDeskExpanded ? (
+                    <ChevronUp className="h-3.5 w-3.5 text-amber-400" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 text-amber-400" />
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* Direct Channel to Admin Portal Form */}
-            {showDispatchForm && (
-              <form onSubmit={handleDispatchToAdminPortal} className="mt-4 pt-4 border-t border-amber-400/25 space-y-3 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between">
+            {!isEmailDeskExpanded && (
+              <p className="mt-2 text-[11px] text-zinc-400 leading-relaxed">
+                Direct official communications desk for verified inquiries, urgent communications, and submitting fraudulent account or imposter reports. Click <strong className="text-amber-300">&quot;Direct Channel&quot;</strong> to expand the form or <strong className="text-amber-300">&quot;Email Official Desk&quot;</strong> to mail directly.
+              </p>
+            )}
+
+            {/* Direct Channel to Admin Portal Form (displays fully only when clicked) */}
+            {isEmailDeskExpanded && (
+              <form onSubmit={handleDispatchToAdminPortal} className="mt-3.5 pt-3.5 border-t border-amber-400/25 space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between pb-1 border-b border-white/5">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                    Channel Direct Message into Admin Portal
+                    <Send className="h-3.5 w-3.5 text-amber-400" />
+                    Channel Direct Message to Admin Portal
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-mono font-semibold flex items-center gap-1">
-                    <ShieldCheck className="h-3 w-3" />
-                    Admin Live Sync
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEmailDeskExpanded(false)}
+                    className="text-[11px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Hide Form ▲
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -321,12 +342,7 @@ export function OfficialVerificationModal({
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                    Delivered straight to Site Owner Admin Inbox
-                  </span>
-
+                <div className="flex items-center justify-end pt-1">
                   <button
                     type="submit"
                     className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 px-5 py-2 text-xs font-bold uppercase tracking-wider text-black shadow-lg hover:from-amber-300 hover:to-amber-500 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
@@ -344,6 +360,68 @@ export function OfficialVerificationModal({
                 )}
               </form>
             )}
+          </div>
+
+          {/* 3rd Display: Official Telegram Channel (#1 Priority Channel) */}
+          <div className="rounded-xl sm:rounded-2xl border-2 border-[#229ED9]/80 bg-gradient-to-r from-[#229ED9]/20 via-zinc-900/95 to-zinc-950 p-3.5 sm:p-5 shadow-[0_0_35px_rgba(34,158,217,0.3)] relative overflow-hidden">
+            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
+              <span className="rounded-full bg-[#229ED9] text-white px-2.5 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-[11px] font-bold uppercase tracking-wider shadow">
+                ★ #1 Official Broadcast
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mt-1 sm:mt-0">
+              <div className="flex h-10 w-10 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#229ED9] to-[#0088cc] text-white shadow-[0_0_20px_rgba(34,158,217,0.6)]">
+                <Send className="h-5 w-5 sm:h-7 sm:w-7 text-white ml-0.5" />
+              </div>
+
+              <div className="space-y-0.5 sm:space-y-1 flex-1 pr-14 sm:pr-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-cinzel text-base sm:text-lg font-bold text-white">
+                    Official Telegram Channel
+                  </h3>
+                  <span className="text-[9px] sm:text-[10px] bg-[#229ED9]/20 text-[#229ED9] border border-[#229ED9]/40 px-1.5 py-0.2 rounded font-mono font-semibold">
+                    VERIFIED #1
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm font-mono text-[#229ED9] font-bold select-all">
+                  {SOCIAL_MEDIA_HANDLES.telegram.handle}
+                </p>
+                <p className="text-[11px] sm:text-xs text-zinc-200 leading-relaxed">
+                  The direct and official channel to reach Leonardo DiCaprio. Connect and message him directly for verified communications, personal dispatches, and priority direct inquiries.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => handleCopy(SOCIAL_MEDIA_HANDLES.telegram.handle, 'tg-modal')}
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              >
+                {copiedKey === 'tg-modal' ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-mono text-xs">Copied Handle</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="font-mono text-xs">Copy Handle</span>
+                  </>
+                )}
+              </button>
+
+              <a
+                href={SOCIAL_MEDIA_HANDLES.telegram.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#229ED9] hover:bg-[#1f8fc4] text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(34,158,217,0.5)] hover:scale-105 active:scale-95"
+              >
+                <span>Message Directly on Telegram</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
           </div>
 
           {/* Grid of the Other 3 Verified Accounts */}

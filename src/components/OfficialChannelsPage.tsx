@@ -72,7 +72,10 @@ function SpotlightCard({
   );
 }
 
-export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps) {
+export function OfficialChannelsPage({
+  currentTheme,
+  onOpenReportModal,
+}: OfficialChannelsPageProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const themeConfig = THEME_CONFIGS[currentTheme];
 
@@ -118,14 +121,14 @@ export function OfficialChannelsPage({ currentTheme }: OfficialChannelsPageProps
           </div>
 
           <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <a
-              href={`mailto:${OFFICIAL_CONTACT_EMAIL}?subject=Official%20Inquiry%20%2F%20Imposter%20Report%20-%20Leonardo%20DiCaprio%20Official&body=Please%20attach%20the%20fake%20profile%20link%20and%20screenshot%20evidence%20here%3A`}
+            <button
+              onClick={onOpenReportModal}
               className="w-full lg:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
             >
-              <Mail className="h-5 w-5" />
-              <span>Contact {OFFICIAL_CONTACT_EMAIL}</span>
+              <Send className="h-5 w-5" />
+              <span>Channel Message Directly to Admin</span>
               <ExternalLink className="h-4 w-4" />
-            </a>
+            </button>
           </div>
         </div>
       </SpotlightCard>
