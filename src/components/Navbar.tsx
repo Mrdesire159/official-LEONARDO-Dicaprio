@@ -122,10 +122,20 @@ export function Navbar({
       }
     };
     window.addEventListener('owner-mode-changed', handleCustomEvent);
+    const handleNewChanneledMessage = (e: Event) => {
+      const msg = (e as CustomEvent).detail;
+      if (msg) {
+        setOwnerNotification(`📩 New Channeled Report from ${msg.senderName}: "${msg.subject}" delivered to Admin Portal`);
+        setTimeout(() => setOwnerNotification(null), 6000);
+      }
+    };
+    window.addEventListener('owner-mode-changed', handleCustomEvent);
     window.addEventListener('hashchange', handleHash);
+    window.addEventListener('new-channeled-message', handleNewChanneledMessage);
     return () => {
       window.removeEventListener('owner-mode-changed', handleCustomEvent);
       window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('new-channeled-message', handleNewChanneledMessage);
     };
   }, []);
 

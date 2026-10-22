@@ -150,3 +150,15 @@ export interface UserProfile {
   status?: 'active' | 'vip_elevated' | 'alumni' | 'pending';
   conciergeNotes?: string;
 }
+
+export interface ChanneledMessage {
+  id: string;
+  senderName: string;
+  senderContact: string;
+  category: 'imposter_report' | 'vip_inquiry' | 'official_contact' | 'urgent_takedown';
+  subject: string;
+  message: string;
+  evidenceUrl?: string;
+  timestamp: string;
+  status: 'unread' | 'read' | 'resolved';
+}

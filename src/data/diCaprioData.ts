@@ -8,6 +8,7 @@ import {
   Testimonial,
   SocialProofBadge,
   OrderRecord,
+  ChanneledMessage,
 } from '../types';
 
 import gilbertGrapeImg from '../assets/images/regenerated_image_1791997681553.jpg';
@@ -1335,7 +1336,8 @@ export const SOCIAL_MEDIA_HANDLES = {
   },
 };
 
-export const OFFICIAL_SECURITY_EMAIL = 'offcailleonardodicaprio@gmail.com';
+export const OFFICIAL_SECURITY_EMAIL = 'contact@officialleonardodicaprio.com';
+export const OFFICIAL_CONTACT_EMAIL = 'contact@officialleonardodicaprio.com';
 
 export const DEFAULT_USER_PROFILE = {
   name: '',
@@ -1349,4 +1351,39 @@ export const DEFAULT_USER_PROFILE = {
 };
 
 export const INITIAL_PURCHASE_HISTORY: OrderRecord[] = [];
+
+export const DEFAULT_CHANNELED_MESSAGES: ChanneledMessage[] = [
+  {
+    id: 'msg-seed-1',
+    senderName: 'Alexandra Sterling',
+    senderContact: 'alexandra.sterling@cinema-guild.com',
+    category: 'imposter_report',
+    subject: 'Fake Instagram profile soliciting VIP fees',
+    message: 'Encountered an account posing as Leonardo\'s personal foundation (@leonardo_dicaprio_private_vip) sending direct messages requesting $3,500 via Bitcoin for gala entry passes. Please issue a legal takedown notice.',
+    evidenceUrl: 'https://instagram.com/fake_profile_screenshot_ref',
+    timestamp: 'Today at 08:42 AM',
+    status: 'unread',
+  },
+  {
+    id: 'msg-seed-2',
+    senderName: 'Lord Marcus Kensington',
+    senderContact: 'kensington.estate@monaco-invest.mc',
+    category: 'vip_inquiry',
+    subject: 'Official Cannes 2026 Sovereign Pass Allocation',
+    message: 'Direct inquiry for our delegation attending Cannes 2026. Requesting confirmation of the private salon banquet allocation for two Sovereign 24K credentials under our name.',
+    timestamp: 'Yesterday at 04:15 PM',
+    status: 'read',
+  },
+  {
+    id: 'msg-seed-3',
+    senderName: 'Elena Rostova',
+    senderContact: 'elena.rostova@geneva-arts.ch',
+    category: 'urgent_takedown',
+    subject: 'Suspicious WhatsApp Business profile using Leonardo portrait',
+    message: 'An unauthorized WhatsApp account with the number +44 7911 123456 has been messaging art collectors claiming to represent Leonardo DiCaprio Art Sanctuaries. Requesting immediate legal warning.',
+    evidenceUrl: 'https://wa.me/evidence-file-2026',
+    timestamp: 'Yesterday at 11:20 AM',
+    status: 'resolved',
+  },
+];
 
