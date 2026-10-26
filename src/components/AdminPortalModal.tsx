@@ -76,7 +76,8 @@ export function AdminPortalModal({
       return true;
     }
   });
-  const [enteredPasskey, setEnteredPasskey] = useState(DEFAULT_OWNER_PASSKEY);
+  const [enteredPasskey, setEnteredPasskey] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState<'inbox' | 'testimonials' | 'visitors' | 'settings'>('inbox');
 
@@ -244,7 +245,7 @@ export function AdminPortalModal({
       setLoginAlertNotice(`Security Alert: Login notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
       setTimeout(() => setLoginAlertNotice(''), 8000);
     } else {
-      setAuthError(`Incorrect Site Owner Passcode. (Authorized Owner Passkey: ${DEFAULT_OWNER_PASSKEY})`);
+      setAuthError('Incorrect Site Owner Passcode. Please enter your passcode manually.');
       const failedEntry = {
         id: `log-failed-${Date.now()}`,
         timestamp: new Date().toLocaleString(),
@@ -253,30 +254,6 @@ export function AdminPortalModal({
       };
       setLoginHistory((prev) => [failedEntry, ...prev.slice(0, 9)]);
     }
-  };
-
-  const handleQuickUnlock = () => {
-    setEnteredPasskey(DEFAULT_OWNER_PASSKEY);
-    setIsAuthenticated(true);
-    setAuthError('');
-    const newEntry = {
-      id: `log-${Date.now()}`,
-      timestamp: new Date().toLocaleString(),
-      status: 'Instant Verified Owner Access',
-      recipient: OFFICIAL_SECURITY_EMAIL,
-    };
-    const updated = [newEntry, ...loginHistory.slice(0, 9)];
-    setLoginHistory(updated);
-    try {
-      localStorage.removeItem('ld_owner_locked');
-      sessionStorage.setItem('ld_owner_authenticated', 'true');
-      localStorage.setItem('ld_owner_authenticated', 'true');
-      localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
-    setLoginAlertNotice(`Admin Portal Active: Notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
-    setTimeout(() => setLoginAlertNotice(''), 8000);
   };
 
   const handleSendTestNotification = () => {
@@ -299,6 +276,8 @@ export function AdminPortalModal({
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setEnteredPasskey('');
+    setAuthError('');
     try {
       localStorage.setItem('ld_owner_locked', 'true');
       sessionStorage.removeItem('ld_owner_authenticated');
@@ -463,19 +442,26 @@ export function AdminPortalModal({
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     name="admin-passcode-field"
-                    autoComplete="new-password"
+                    autoComplete="off"
                     value={enteredPasskey}
                     onChange={(e) => {
                       setEnteredPasskey(e.target.value);
                       setAuthError('');
                     }}
-                    placeholder="Enter confidential owner passcode..."
-                    className="w-full rounded-xl border border-white/20 bg-zinc-900/90 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+                    placeholder="Enter owner passcode manually..."
+                    className="w-full rounded-xl border border-white/20 bg-zinc-900/90 pl-4 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
                     autoFocus
                   />
-                  <KeyRound className="absolute right-3.5 top-3.5 h-4 w-4 text-zinc-500" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                    aria-label={showPassword ? 'Hide passcode' : 'Show passcode'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
                 {authError && (
                   <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
@@ -483,25 +469,15 @@ export function AdminPortalModal({
                     {authError}
                   </p>
                 )}
-                {/* Passkey and password display removed for strict owner confidentiality */}
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2.5">
+              <div>
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                 >
                   <Unlock className="h-4 w-4" />
                   <span>Unlock Owner Portal</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleQuickUnlock}
-                  className="rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/25 py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-amber-300 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  title="One-click immediate owner unlock"
-                >
-                  <ShieldCheck className="h-4 w-4 text-amber-400" />
-                  <span>Quick Unlock</span>
                 </button>
               </div>
             </form>

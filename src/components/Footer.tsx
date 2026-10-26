@@ -1,8 +1,4 @@
-import { useState, useEffect } from 'react';
-import {
-  ArrowUp,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { LuxuryTheme, PageId } from '../types';
 import { THEME_CONFIGS } from '../data/diCaprioData';
 
@@ -22,31 +18,6 @@ export function Footer({
   onOpenVerificationModal,
 }: FooterProps) {
   const themeConfig = THEME_CONFIGS[currentTheme];
-
-  const [isOwnerVisible, setIsOwnerVisible] = useState<boolean>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        return (
-          localStorage.getItem('ld_owner_mode') === 'true' ||
-          sessionStorage.getItem('ld_owner_authenticated') === 'true'
-        );
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    const handleOwnerEvent = (e: Event) => {
-      const detail = (e as CustomEvent<boolean>).detail;
-      if (typeof detail === 'boolean') {
-        setIsOwnerVisible(detail);
-      }
-    };
-    window.addEventListener('owner-mode-changed', handleOwnerEvent);
-    return () => window.removeEventListener('owner-mode-changed', handleOwnerEvent);
-  }, []);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -210,21 +181,6 @@ export function Footer({
                   className="text-amber-400 hover:text-white transition-colors"
                 >
                   Anti-Fraud Notice
-                </button>
-              </>
-            )}
-            {onOpenAdmin && isOwnerVisible && (
-              <>
-                <span>·</span>
-                <button
-                  onClick={onOpenAdmin}
-                  className="hover:text-amber-300 text-amber-400 font-mono text-xs transition-colors flex items-center gap-1.5 font-bold cursor-pointer"
-                  title="Site Owner Admin Portal (Visible exclusively to you)"
-                  aria-label="Site Owner Admin Portal"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Admin Portal</span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </button>
               </>
             )}
