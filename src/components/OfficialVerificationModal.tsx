@@ -44,6 +44,18 @@ export function OfficialVerificationModal({
   const [evidenceUrl, setEvidenceUrl] = useState('');
   const [dispatchSuccess, setDispatchSuccess] = useState(false);
 
+  // Track visitor's own inquiries and official replies
+  const [myInquiries, setMyInquiries] = useState<ChanneledMessage[]>(() => {
+    try {
+      const userMsgIds: string[] = JSON.parse(localStorage.getItem('ld_user_submitted_message_ids') || '[]');
+      const allMsgs: ChanneledMessage[] = JSON.parse(localStorage.getItem('ld_owner_channeled_messages') || '[]');
+      return allMsgs.filter((m) => userMsgIds.includes(m.id));
+    } catch {
+      return [];
+    }
+  });
+  const [showMyInquiries, setShowMyInquiries] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -54,6 +66,51 @@ export function OfficialVerificationModal({
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  // Sync real-time replies from admin for visitor's inquiries
+  useEffect(() => {
+    const syncInquiries = () => {
+      try {
+        const userMsgIds: string[] = JSON.parse(localStorage.getItem('ld_user_submitted_message_ids') || '[]');
+        const allMsgs: ChanneledMessage[] = JSON.parse(localStorage.getItem('ld_owner_channeled_messages') || '[]');
+        setMyInquiries(allMsgs.filter((m) => userMsgIds.includes(m.id)));
+      } catch {
+        // ignore
+      }
+    };
+
+    const handleReplyEvent = () => {
+      syncInquiries();
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'ld_owner_channeled_messages' || e.key === 'ld_latest_reply_stream') {
+        syncInquiries();
+      }
+    };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('ld_channeled_messages_stream');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'admin_reply') {
+            syncInquiries();
+          }
+        };
+      }
+    } catch {
+      // ignore
+    }
+
+    window.addEventListener('admin-reply-sent', handleReplyEvent);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('admin-reply-sent', handleReplyEvent);
+      window.removeEventListener('storage', handleStorageChange);
+      if (bc) bc.close();
+    };
+  }, []);
 
   const handleCopy = (text: string, key: string) => {
     try {
@@ -86,12 +143,26 @@ export function OfficialVerificationModal({
       const currentList: ChanneledMessage[] = stored ? JSON.parse(stored) : [];
       const updated = [newMsg, ...currentList];
       localStorage.setItem('ld_owner_channeled_messages', JSON.stringify(updated));
+
+      const userMsgIds: string[] = JSON.parse(localStorage.getItem('ld_user_submitted_message_ids') || '[]');
+      const updatedUserIds = [newMsg.id, ...userMsgIds];
+      localStorage.setItem('ld_user_submitted_message_ids', JSON.stringify(updatedUserIds));
+      setMyInquiries([newMsg, ...myInquiries]);
+
       window.dispatchEvent(new CustomEvent('new-channeled-message', { detail: newMsg }));
+      
+      // Real-time cross-tab and cross-window broadcast
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('ld_channeled_messages_stream');
+        bc.postMessage(newMsg);
+        bc.close();
+      }
     } catch {
       // ignore
     }
 
     setDispatchSuccess(true);
+    setShowMyInquiries(true);
     setSenderName('');
     setSenderContact('');
     setSubject('');
@@ -99,7 +170,7 @@ export function OfficialVerificationModal({
     setEvidenceUrl('');
     setTimeout(() => {
       setDispatchSuccess(false);
-    }, 4500);
+    }, 5500);
   };
 
   if (!isOpen) return null;
@@ -166,12 +237,9 @@ export function OfficialVerificationModal({
           {/* 2nd Display: Official Contact Desk & Direct Channel to Admin Portal */}
           <div className="rounded-xl sm:rounded-2xl border-2 border-amber-400/60 bg-gradient-to-r from-amber-400/15 via-zinc-900/90 to-zinc-950 p-4 sm:p-5 shadow-[0_0_30px_rgba(245,158,11,0.25)] relative overflow-hidden transition-all duration-300">
             {/* Clean top header strip for the Official Security & Contact Desk badge */}
-            <div className="flex items-center justify-between pb-2.5 mb-3.5 border-b border-white/10">
+            <div className="flex items-center pb-2.5 mb-3.5 border-b border-white/10">
               <span className="rounded-full bg-amber-400 text-black px-3 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest shadow">
                 Official Security &amp; Contact Desk
-              </span>
-              <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
-                Direct Portal
               </span>
             </div>
 
@@ -182,21 +250,16 @@ export function OfficialVerificationModal({
                 </div>
 
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-cinzel text-sm sm:text-base font-bold text-white">
-                      Official Contact Desk
-                    </h3>
-                    <span className="text-[9px] sm:text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-mono font-semibold">
-                      VERIFIED
-                    </span>
-                  </div>
+                  <h3 className="font-cinzel text-sm sm:text-base font-bold text-white">
+                    Official Contact Desk
+                  </h3>
                   <p className="text-xs sm:text-sm font-mono text-amber-300 font-bold select-all tracking-wide">
                     {OFFICIAL_CONTACT_EMAIL}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons: Restored Email Official Desk button & toggle to display fully */}
+              {/* Action Buttons: Channel directly to Admin Portal */}
               <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
                 <button
                   type="button"
@@ -217,25 +280,28 @@ export function OfficialVerificationModal({
                   )}
                 </button>
 
-                {/* Restored Email Official Desk Button with generous spacing */}
-                <a
-                  href={`mailto:${OFFICIAL_CONTACT_EMAIL}`}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 shrink-0"
+                {/* Primary Button: Channel Message Directly to Admin Portal */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEmailDeskExpanded(true);
+                    setCategory('official_contact');
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                  title="Channel message directly into Admin Portal inbox"
                 >
-                  <Mail className="h-3.5 w-3.5" />
-                  <span>Email Official Desk</span>
-                  <ExternalLink className="h-3 w-3 ml-0.5" />
-                </a>
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Channel Message to Admin</span>
+                </button>
 
-                {/* Small toggle button: expands fully only when clicked */}
+                {/* Toggle Button to open/close direct form */}
                 <button
                   type="button"
                   onClick={() => setIsEmailDeskExpanded(!isEmailDeskExpanded)}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 cursor-pointer shrink-0"
-                  title={isEmailDeskExpanded ? 'Collapse form' : 'Open direct message channel'}
+                  title={isEmailDeskExpanded ? 'Collapse form' : 'Open transmission form'}
                 >
-                  <Send className="h-3.5 w-3.5 text-amber-400" />
-                  <span>{isEmailDeskExpanded ? 'Close Form' : 'Direct Channel'}</span>
+                  <span>{isEmailDeskExpanded ? 'Close Form' : 'Write Direct'}</span>
                   {isEmailDeskExpanded ? (
                     <ChevronUp className="h-3.5 w-3.5 text-amber-400" />
                   ) : (
@@ -244,12 +310,6 @@ export function OfficialVerificationModal({
                 </button>
               </div>
             </div>
-
-            {!isEmailDeskExpanded && (
-              <p className="mt-2 text-[11px] text-zinc-400 leading-relaxed">
-                Direct official communications desk for verified inquiries, urgent communications, and submitting fraudulent account or imposter reports. Click <strong className="text-amber-300">&quot;Direct Channel&quot;</strong> to expand the form or <strong className="text-amber-300">&quot;Email Official Desk&quot;</strong> to mail directly.
-              </p>
-            )}
 
             {/* Direct Channel to Admin Portal Form (displays fully only when clicked) */}
             {isEmailDeskExpanded && (
@@ -348,17 +408,113 @@ export function OfficialVerificationModal({
                     className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 px-5 py-2 text-xs font-bold uppercase tracking-wider text-black shadow-lg hover:from-amber-300 hover:to-amber-500 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <Send className="h-3.5 w-3.5" />
-                    <span>Channel to Admin Portal</span>
+                    <span>Channel Message to Admin</span>
                   </button>
                 </div>
 
                 {dispatchSuccess && (
                   <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
                     <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span>Success! Your message has been channeled directly into the Site Owner Admin Portal.</span>
+                    <span>Message dispatched directly to the Admin Portal.</span>
                   </div>
                 )}
               </form>
+            )}
+
+            {/* Real-time Tracked Inquiries & Official Responses for Visitors */}
+            {myInquiries.length > 0 && (
+              <div className="mt-3.5 pt-3.5 border-t border-amber-400/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowMyInquiries(!showMyInquiries)}
+                    className="text-xs font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 text-amber-400" />
+                    <span>My Inquiries &amp; Live Responses ({myInquiries.length})</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">
+                      {showMyInquiries ? '▲ Hide' : '▼ View Status'}
+                    </span>
+                  </button>
+
+                  {myInquiries.some((m) => m.status === 'resolved' || m.reply) && (
+                    <span className="text-[9px] font-mono uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                      <Check className="h-2.5 w-2.5" /> Official Reply Ready
+                    </span>
+                  )}
+                </div>
+
+                {showMyInquiries && (
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 animate-in fade-in">
+                    {myInquiries.map((inq) => {
+                      const hasReply = Boolean(inq.reply || (inq.replies && inq.replies.length > 0));
+                      return (
+                        <div
+                          key={inq.id}
+                          className="p-3 sm:p-3.5 rounded-xl border border-white/10 bg-black/75 space-y-2 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="font-bold text-white text-xs sm:text-sm block">{inq.subject}</span>
+                              <span className="text-[10px] text-zinc-400 font-mono">Dispatched: {inq.timestamp}</span>
+                            </div>
+                            <span
+                              className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded-full font-bold border shrink-0 ${
+                                hasReply
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}
+                            >
+                              {hasReply ? '✓ Official Reply Ready' : 'Under Review'}
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-lg bg-zinc-900/60 text-[11px] text-zinc-300 border border-white/5">
+                            {inq.message}
+                          </div>
+
+                          {/* Official Verified Response */}
+                          {(inq.replies && inq.replies.length > 0
+                            ? inq.replies
+                            : inq.reply
+                            ? [
+                                {
+                                  id: `reply-${inq.id}`,
+                                  text: inq.reply,
+                                  sender: 'Official Office of Leonardo DiCaprio',
+                                  timestamp: inq.repliedAt || inq.timestamp,
+                                },
+                              ]
+                            : []
+                          ).map((rep) => (
+                            <div
+                              key={rep.id}
+                              className="mt-2 p-3 rounded-xl border-2 border-emerald-500/50 bg-emerald-950/30 text-xs space-y-1.5 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                            >
+                              <div className="flex items-center justify-between text-[10px] border-b border-emerald-500/20 pb-1">
+                                <span className="font-bold text-emerald-300 flex items-center gap-1">
+                                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                                  {rep.sender}
+                                </span>
+                                <span className="text-zinc-400 font-mono">{rep.timestamp}</span>
+                              </div>
+                              <p className="text-white text-xs leading-relaxed font-sans whitespace-pre-wrap">
+                                {rep.text}
+                              </p>
+                              <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400/90 pt-1">
+                                <span>✓ Real-Time Verified Response</span>
+                                {inq.senderContact.includes('@') && (
+                                  <span className="text-zinc-400">Also channeled to your email</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

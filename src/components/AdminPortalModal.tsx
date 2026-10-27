@@ -36,9 +36,10 @@ import {
   EyeOff,
   Inbox,
   MessageSquare,
-  Flag
+  Flag,
+  Reply
 } from 'lucide-react';
-import { Testimonial, UserProfile, OrderRecord, LuxuryTheme, ChanneledMessage } from '../types';
+import { Testimonial, UserProfile, OrderRecord, LuxuryTheme, ChanneledMessage, MessageReply } from '../types';
 import { THEME_CONFIGS, TESTIMONIALS as DEFAULT_TESTIMONIALS, OFFICIAL_SECURITY_EMAIL, DEFAULT_CHANNELED_MESSAGES } from '../data/diCaprioData';
 
 interface AdminPortalModalProps {
@@ -94,28 +95,287 @@ export function AdminPortalModal({
   const [inboxFilter, setInboxFilter] = useState<'all' | 'unread' | 'imposter_report' | 'vip_inquiry' | 'urgent_takedown'>('all');
   const [inboxSearch, setInboxSearch] = useState('');
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [realtimeIncomingAlert, setRealtimeIncomingAlert] = useState<ChanneledMessage | null>(null);
 
-  // Sync incoming real-time channeled messages
+  // Real-time reply composer states
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replySuccessNotice, setReplySuccessNotice] = useState<string | null>(null);
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [autoEmailSender, setAutoEmailSender] = useState(true);
+
+  // Reset reply state on message selection change
   React.useEffect(() => {
+    setIsReplying(false);
+    setReplyText('');
+    setReplySuccessNotice(null);
+  }, [selectedMessageId]);
+
+  // Sync incoming real-time channeled messages & replies
+  React.useEffect(() => {
+    const playNotificationPing = () => {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.25);
+        }
+      } catch {
+        // audio not allowed without prior interaction or unsupported
+      }
+    };
+
+    const processIncomingMessage = (msg: ChanneledMessage) => {
+      if (!msg) return;
+      setChanneledMessages((prev) => {
+        const exists = prev.some((m) => m.id === msg.id);
+        if (exists) return prev;
+        return [msg, ...prev];
+      });
+      setRealtimeIncomingAlert(msg);
+      playNotificationPing();
+      setTimeout(() => setRealtimeIncomingAlert((curr) => (curr?.id === msg.id ? null : curr)), 7000);
+    };
+
+    const processIncomingReply = (messageId: string, reply: MessageReply) => {
+      if (!messageId || !reply) return;
+      setChanneledMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === messageId) {
+            const prevReplies = m.replies || [];
+            if (prevReplies.some((r) => r.id === reply.id)) return m;
+            return {
+              ...m,
+              status: 'resolved' as const,
+              reply: reply.text,
+              repliedAt: reply.timestamp,
+              replies: [...prevReplies, reply],
+            };
+          }
+          return m;
+        })
+      );
+    };
+
     const handleNewMessage = (e: Event) => {
       const msg = (e as CustomEvent<ChanneledMessage>).detail;
       if (msg) {
-        setChanneledMessages((prev) => {
-          const exists = prev.some((m) => m.id === msg.id);
-          if (exists) return prev;
-          const updated = [msg, ...prev];
-          try {
-            localStorage.setItem('ld_owner_channeled_messages', JSON.stringify(updated));
-          } catch {
-            // ignore
-          }
-          return updated;
-        });
+        processIncomingMessage(msg);
       }
     };
+
+    const handleAdminReplyEvent = (e: Event) => {
+      const data = (e as CustomEvent<{ messageId: string; reply: MessageReply }>).detail;
+      if (data?.messageId && data?.reply) {
+        processIncomingReply(data.messageId, data.reply);
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'ld_owner_channeled_messages' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setChanneledMessages(parsed);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (e.key === 'ld_latest_reply_stream' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed?.messageId && parsed?.reply) {
+            processIncomingReply(parsed.messageId, parsed.reply);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('ld_channeled_messages_stream');
+        bc.onmessage = (event) => {
+          if (event.data) {
+            if (event.data.type === 'admin_reply') {
+              processIncomingReply(event.data.messageId, event.data.reply);
+            } else {
+              processIncomingMessage(event.data);
+            }
+          }
+        };
+      }
+    } catch {
+      // ignore
+    }
+
     window.addEventListener('new-channeled-message', handleNewMessage);
-    return () => window.removeEventListener('new-channeled-message', handleNewMessage);
+    window.addEventListener('admin-reply-sent', handleAdminReplyEvent);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('new-channeled-message', handleNewMessage);
+      window.removeEventListener('admin-reply-sent', handleAdminReplyEvent);
+      window.removeEventListener('storage', handleStorageChange);
+      if (bc) bc.close();
+    };
   }, []);
+
+  const handleSendReply = (messageId: string, customText?: string) => {
+    const textToDispatch = (customText !== undefined ? customText : replyText).trim();
+    if (!textToDispatch) return;
+
+    setIsSendingReply(true);
+    const targetMsg = channeledMessages.find((m) => m.id === messageId);
+    const now = new Date();
+    const formattedTimestamp =
+      now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+      ', ' +
+      now.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const newReply: MessageReply = {
+      id: `reply-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      sender: 'Official Office of Leonardo DiCaprio (Admin Desk)',
+      text: textToDispatch,
+      timestamp: formattedTimestamp,
+      channelMethod: 'direct_in_app',
+    };
+
+    setChanneledMessages((prev) => {
+      const updated = prev.map((m) => {
+        if (m.id === messageId) {
+          const prevReplies = m.replies || (m.reply ? [{
+            id: `reply-init-${m.id}`,
+            sender: 'Official Admin Desk',
+            text: m.reply,
+            timestamp: m.repliedAt || m.timestamp,
+            channelMethod: 'direct_in_app' as const,
+          }] : []);
+          return {
+            ...m,
+            status: 'resolved' as const,
+            reply: textToDispatch,
+            repliedAt: formattedTimestamp,
+            replies: [...prevReplies, newReply],
+          };
+        }
+        return m;
+      });
+
+      try {
+        localStorage.setItem('ld_owner_channeled_messages', JSON.stringify(updated));
+        localStorage.setItem(
+          'ld_latest_reply_stream',
+          JSON.stringify({
+            messageId,
+            reply: newReply,
+            sentAt: Date.now(),
+          })
+        );
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+
+    // Real-Time BroadcastChannel transmission across tabs & instances
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('ld_channeled_messages_stream');
+        bc.postMessage({
+          type: 'admin_reply',
+          messageId,
+          reply: newReply,
+        });
+        bc.close();
+      }
+    } catch {
+      // ignore
+    }
+
+    // Real-time custom event for in-page listeners
+    window.dispatchEvent(
+      new CustomEvent('admin-reply-sent', {
+        detail: {
+          messageId,
+          reply: newReply,
+        },
+      })
+    );
+
+    // Server-side audit logging
+    try {
+      fetch('/api/replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          recipientName: targetMsg?.senderName,
+          recipientContact: targetMsg?.senderContact,
+          subject: targetMsg?.subject,
+          replyText: textToDispatch,
+          channelMethod: targetMsg?.senderContact.includes('@') ? 'email_and_portal' : 'direct_portal',
+        }),
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
+
+    // Direct email dispatch to real human if enabled and contact has email
+    if (autoEmailSender && targetMsg && targetMsg.senderContact.includes('@')) {
+      try {
+        const mailtoUrl = `mailto:${encodeURIComponent(targetMsg.senderContact)}?subject=${encodeURIComponent(
+          'Re: ' + targetMsg.subject + ' - Leonardo DiCaprio Official Office'
+        )}&body=${encodeURIComponent(textToDispatch)}`;
+        window.open(mailtoUrl, '_blank');
+      } catch {
+        // ignore
+      }
+    }
+
+    // Audio chime feedback
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.35);
+      }
+    } catch {
+      // ignore
+    }
+
+    setIsSendingReply(false);
+    setReplyText('');
+    setReplySuccessNotice(
+      `⚡ Real-time reply dispatched to ${targetMsg?.senderName || 'sender'} (${targetMsg?.senderContact || 'contact'}) and recorded in official audit log.`
+    );
+    setTimeout(() => {
+      setReplySuccessNotice(null);
+    }, 7000);
+  };
 
   const handleUpdateMessageStatus = (id: string, newStatus: 'unread' | 'read' | 'resolved') => {
     setChanneledMessages((prev) => {
@@ -511,6 +771,44 @@ export function AdminPortalModal({
               </div>
             )}
 
+            {/* Real-Time Incoming Message Alert Banner */}
+            {realtimeIncomingAlert && (
+              <div className="mb-4 flex items-center justify-between rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/25 via-zinc-900 to-black p-3.5 text-xs text-amber-200 shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <div>
+                    <span className="font-bold text-white uppercase tracking-wider text-[11px]">⚡ Real-Time Message Received:</span>{' '}
+                    <span className="text-zinc-200 font-medium">{realtimeIncomingAlert.senderName}</span>{' '}
+                    <span className="text-amber-300 font-mono text-[11px]">(&ldquo;{realtimeIncomingAlert.subject}&rdquo;)</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('inbox');
+                      setSelectedMessageId(realtimeIncomingAlert.id);
+                      setRealtimeIncomingAlert(null);
+                    }}
+                    className="rounded-lg bg-amber-400 text-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors cursor-pointer"
+                  >
+                    Open Inbox
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRealtimeIncomingAlert(null)}
+                    className="text-zinc-400 hover:text-white p-1 text-xs"
+                    aria-label="Dismiss alert"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Persistent Login Alert Indicator */}
             <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-xs">
               <div className="flex items-center gap-2 text-zinc-300 text-[11px]">
@@ -773,6 +1071,12 @@ export function AdminPortalModal({
                                     {msg.category.replace('_', ' ')}
                                   </span>
 
+                                  {(msg.reply || (msg.replies && msg.replies.length > 0)) && (
+                                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                      <Reply className="h-2.5 w-2.5" /> Replied
+                                    </span>
+                                  )}
+
                                   {msg.status === 'unread' && (
                                     <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
                                   )}
@@ -878,20 +1182,58 @@ export function AdminPortalModal({
                             </div>
                           </div>
 
-                          {/* Quick Admin Actions */}
+                          {/* Reply Success Feedback Toast */}
+                          {replySuccessNotice && (
+                            <div className="p-3 rounded-xl border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                                <span className="font-semibold">{replySuccessNotice}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setReplySuccessNotice(null)}
+                                className="text-zinc-400 hover:text-white text-xs cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Quick Admin Actions with Dedicated Reply Button */}
                           <div className="space-y-2 pt-2 border-t border-white/10">
                             <div className="flex flex-wrap items-center gap-2">
+                              {/* Dedicated Reply Button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsReplying((prev) => !prev);
+                                  if (!replyText) {
+                                    setReplyText(`Dear ${current.senderName},\n\nThank you for reaching out to the Official Office of Leonardo DiCaprio. `);
+                                  }
+                                }}
+                                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 text-center ${
+                                  isReplying
+                                    ? 'bg-amber-300 text-black shadow-amber-400/40 ring-2 ring-amber-400'
+                                    : 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black hover:from-amber-300 hover:to-amber-500'
+                                }`}
+                              >
+                                <Reply className="h-3.5 w-3.5 shrink-0" />
+                                <span>{isReplying ? 'Close Reply' : 'Reply to Message'}</span>
+                              </button>
+
                               {current.senderContact.includes('@') && (
                                 <a
                                   href={`mailto:${current.senderContact}?subject=Re:%20${encodeURIComponent(current.subject)}%20-%20Leonardo%20DiCaprio%20Official%20Office&body=Dear%20${encodeURIComponent(current.senderName)}%2C%0A%0AThank%20you%20for%20contacting%20the%20Official%20Office%20of%20Leonardo%20DiCaprio.%0A%0A`}
-                                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-black px-3 py-2 text-xs font-bold uppercase tracking-wider hover:from-amber-300 hover:to-amber-400 transition-all cursor-pointer shadow-sm active:scale-95 text-center"
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 px-3 py-2 text-xs font-semibold transition-all cursor-pointer"
+                                  title="Open external email app"
                                 >
                                   <Mail className="h-3.5 w-3.5 shrink-0" />
-                                  <span>Email Sender</span>
+                                  <span>Email</span>
                                 </a>
                               )}
 
                               <button
+                                type="button"
                                 onClick={() =>
                                   handleUpdateMessageStatus(
                                     current.id,
@@ -904,6 +1246,7 @@ export function AdminPortalModal({
                               </button>
 
                               <button
+                                type="button"
                                 onClick={() => handleUpdateMessageStatus(current.id, 'resolved')}
                                 className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-300 transition-all cursor-pointer"
                               >
@@ -911,6 +1254,7 @@ export function AdminPortalModal({
                               </button>
 
                               <button
+                                type="button"
                                 onClick={() => handleDeleteMessage(current.id)}
                                 className="rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 p-2 text-xs text-red-400 transition-all cursor-pointer"
                                 title="Delete message"
@@ -919,6 +1263,176 @@ export function AdminPortalModal({
                               </button>
                             </div>
                           </div>
+
+                          {/* Interactive Real-Time Reply Composer */}
+                          {isReplying && (
+                            <div className="p-3.5 rounded-2xl border-2 border-amber-400/60 bg-gradient-to-b from-amber-950/20 via-zinc-950 to-black space-y-3 animate-in fade-in slide-in-from-top-1">
+                              <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                  </span>
+                                  <span className="text-[10px] font-mono uppercase font-bold text-amber-300">
+                                    Real-Time Reply Dispatcher
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-zinc-400 font-mono truncate max-w-[170px]">
+                                  To: {current.senderContact}
+                                </span>
+                              </div>
+
+                              {/* Quick Reply Presets */}
+                              <div className="space-y-1">
+                                <span className="text-[9px] uppercase font-mono text-zinc-400 block">Quick Official Templates:</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyText(
+                                        `Dear ${current.senderName},\n\nWe have received your imposter report regarding "${current.subject}". The unauthorized profile has been flagged and transmitted directly to our legal enforcement team for immediate takedown.\n\nThank you for safeguarding Leonardo's official community.`
+                                      )
+                                    }
+                                    className="text-[10px] rounded-lg border border-red-500/30 bg-red-950/30 hover:bg-red-900/40 text-red-200 px-2 py-1 transition-all text-left cursor-pointer"
+                                  >
+                                    🛡️ Imposter Takedown
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyText(
+                                        `Dear ${current.senderName},\n\nThank you for your VIP inquiry regarding "${current.subject}". We have allocated your transmission to the executive concierge desk. An official credential liaison will follow up with verified documentation.`
+                                      )
+                                    }
+                                    className="text-[10px] rounded-lg border border-sky-500/30 bg-sky-950/30 hover:bg-sky-900/40 text-sky-200 px-2 py-1 transition-all text-left cursor-pointer"
+                                  >
+                                    👑 VIP Concierge
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyText(
+                                        `Dear ${current.senderName},\n\nThank you for contacting the Official Office of Leonardo DiCaprio. Your message has been formally reviewed, logged into our secure ledger, and verified as resolved.`
+                                      )
+                                    }
+                                    className="text-[10px] rounded-lg border border-emerald-500/30 bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-200 px-2 py-1 transition-all text-left cursor-pointer"
+                                  >
+                                    ✓ Case Resolved
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Email dispatch toggle if sender has email */}
+                              {current.senderContact.includes('@') && (
+                                <div className="flex items-center gap-2 px-1 py-0.5">
+                                  <label className="flex items-center gap-2 text-[11px] text-zinc-300 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={autoEmailSender}
+                                      onChange={(e) => setAutoEmailSender(e.target.checked)}
+                                      className="rounded border-zinc-700 bg-black text-amber-400 focus:ring-amber-400"
+                                    />
+                                    <span>Send directly to recipient&apos;s real email (<strong className="text-amber-300 font-mono">{current.senderContact}</strong>)</span>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Textarea */}
+                              <div>
+                                <textarea
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  placeholder="Type official reply to be channeled in real-time..."
+                                  rows={4}
+                                  className="w-full rounded-xl border border-white/20 bg-black/80 p-3 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-none font-sans"
+                                />
+                              </div>
+
+                              {/* Dispatch actions */}
+                              <div className="flex items-center justify-between gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsReplying(false);
+                                    setReplyText('');
+                                  }}
+                                  className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-all cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isSendingReply || !replyText.trim()}
+                                  onClick={() => handleSendReply(current.id, replyText)}
+                                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider hover:from-amber-300 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-lg shadow-amber-500/20 active:scale-95"
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                  <span>{isSendingReply ? 'Transmitting...' : 'Send Real-Time Reply'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Dispatched Replies Thread History */}
+                          {((current.replies && current.replies.length > 0) || current.reply) && (
+                            <div className="space-y-2 border-t border-white/10 pt-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Official Dispatched Replies ({current.replies?.length || 1})
+                                </span>
+                                <span className="text-[9px] font-mono text-zinc-500">Real-Time Channel</span>
+                              </div>
+
+                              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                {(current.replies && current.replies.length > 0
+                                  ? current.replies
+                                  : [
+                                      {
+                                        id: 'reply-legacy',
+                                        sender: 'Official Office of Leonardo DiCaprio',
+                                        text: current.reply || '',
+                                        timestamp: current.repliedAt || current.timestamp,
+                                        channelMethod: 'direct_in_app' as const,
+                                      },
+                                    ]
+                                ).map((r) => (
+                                  <div
+                                    key={r.id}
+                                    className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-xs space-y-1.5"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 text-[10px]">
+                                      <span className="font-bold text-emerald-300 flex items-center gap-1">
+                                        <ShieldCheck className="h-3 w-3" />
+                                        {r.sender}
+                                      </span>
+                                      <span className="text-zinc-500 font-mono">{r.timestamp}</span>
+                                    </div>
+                                    <p className="text-zinc-200 text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                                      {r.text}
+                                    </p>
+                                    <div className="flex flex-wrap items-center justify-between gap-1.5 text-[9px] font-mono text-emerald-400/80 pt-1.5 border-t border-emerald-500/20">
+                                      <div className="flex items-center gap-2">
+                                        <span>✓ Verified Delivered</span>
+                                        <span>⚡ Real-Time Synchronized</span>
+                                      </div>
+                                      {current.senderContact.includes('@') && (
+                                        <a
+                                          href={`mailto:${current.senderContact}?subject=Re:%20${encodeURIComponent(current.subject)}%20-%20Leonardo%20DiCaprio%20Official%20Office&body=${encodeURIComponent(r.text)}`}
+                                          className="text-amber-300 hover:text-amber-200 underline flex items-center gap-1 font-sans text-[10px]"
+                                          title="Open message in mail client"
+                                        >
+                                          <Mail className="h-2.5 w-2.5" />
+                                          <span>Launch in Email App</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

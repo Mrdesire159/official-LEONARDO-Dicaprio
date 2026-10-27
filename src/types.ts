@@ -151,6 +151,14 @@ export interface UserProfile {
   conciergeNotes?: string;
 }
 
+export interface MessageReply {
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: string;
+  channelMethod?: 'direct_in_app' | 'email' | 'official_desk';
+}
+
 export interface ChanneledMessage {
   id: string;
   senderName: string;
@@ -161,4 +169,8 @@ export interface ChanneledMessage {
   evidenceUrl?: string;
   timestamp: string;
   status: 'unread' | 'read' | 'resolved';
+  reply?: string;
+  repliedAt?: string;
+  replies?: MessageReply[];
 }
+
