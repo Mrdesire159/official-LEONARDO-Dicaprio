@@ -15,16 +15,20 @@ import {
   Volume2,
   VolumeX,
   Send,
-  Shield
+  Shield,
+  Bell,
+  Inbox
 } from 'lucide-react';
 import { LuxuryTheme, PageId } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
+import { NotificationBasePopover } from './NotificationBasePopover';
 
 interface NavbarProps {
   currentTheme: LuxuryTheme;
   activePage: PageId;
   onSelectPage: (page: PageId) => void;
   onOpenVerificationModal: () => void;
+  onOpenResponsePortal?: (messageId?: string) => void;
   ambientAudioPlaying?: boolean;
   onToggleAmbientAudio?: () => void;
   onOpenProfile?: () => void;
@@ -39,6 +43,7 @@ export function Navbar({
   activePage,
   onSelectPage,
   onOpenVerificationModal,
+  onOpenResponsePortal,
   ambientAudioPlaying,
   onToggleAmbientAudio,
   onOpenProfile,
@@ -46,6 +51,8 @@ export function Navbar({
   orderCount = 0,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isNotificationBaseOpen, setIsNotificationBaseOpen] = useState(false);
+  const [unreadRepliesCount, setUnreadRepliesCount] = useState<number>(0);
 
   // Owner Mode State: Invisible to public visitors, only visible to me (owner)
   const [isOwnerVisible, setIsOwnerVisible] = useState<boolean>(() => {
@@ -129,6 +136,31 @@ export function Navbar({
         setTimeout(() => setOwnerNotification(null), 6000);
       }
     };
+
+    const syncUnreadReplies = () => {
+      try {
+        const stored = localStorage.getItem('ld_owner_channeled_messages');
+        const userMsgIds: string[] = JSON.parse(localStorage.getItem('ld_user_submitted_message_ids') || '[]');
+        const regEmail = localStorage.getItem('ld_visitor_registered_email') || '';
+        if (stored) {
+          const list = JSON.parse(stored);
+          const relevant = list.filter((m: any) => {
+            const hasReply = (m.replies && m.replies.length > 0) || m.reply;
+            if (!hasReply) return false;
+            if (userMsgIds.includes(m.id)) return true;
+            if (regEmail && m.senderContact && m.senderContact.toLowerCase().includes(regEmail.toLowerCase())) return true;
+            return false;
+          });
+          setUnreadRepliesCount(relevant.length);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    syncUnreadReplies();
+    window.addEventListener('storage', syncUnreadReplies);
+    window.addEventListener('official-reply-alert', syncUnreadReplies);
+
     window.addEventListener('owner-mode-changed', handleCustomEvent);
     window.addEventListener('hashchange', handleHash);
     window.addEventListener('new-channeled-message', handleNewChanneledMessage);
@@ -136,6 +168,8 @@ export function Navbar({
       window.removeEventListener('owner-mode-changed', handleCustomEvent);
       window.removeEventListener('hashchange', handleHash);
       window.removeEventListener('new-channeled-message', handleNewChanneledMessage);
+      window.removeEventListener('storage', syncUnreadReplies);
+      window.removeEventListener('official-reply-alert', syncUnreadReplies);
     };
   }, []);
 
@@ -269,6 +303,34 @@ export function Navbar({
             </span>
           </button>
 
+          {/* Notification Base: Custom Email & Inquiries Response Bell Button */}
+          <div className="relative">
+            <button
+              onClick={() => setIsNotificationBaseOpen(!isNotificationBaseOpen)}
+              className="relative flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:border-amber-400/40 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Official Notification Base & Executive Responses (Zero Email Needed)"
+              aria-label="Toggle Notification Base"
+            >
+              <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-300" />
+              {unreadRepliesCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-mono font-bold text-white shadow-sm ring-2 ring-black animate-pulse">
+                  {unreadRepliesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Base Popover Dropdown */}
+            <NotificationBasePopover
+              isOpen={isNotificationBaseOpen}
+              onClose={() => setIsNotificationBaseOpen(false)}
+              currentTheme={currentTheme}
+              onOpenResponsePortal={(msgId) => {
+                if (onOpenResponsePortal) onOpenResponsePortal(msgId);
+              }}
+              unreadCount={unreadRepliesCount}
+            />
+          </div>
+
           {/* Ambient Noir Audio Control */}
           {onToggleAmbientAudio && (
             <button
@@ -284,7 +346,6 @@ export function Navbar({
               )}
             </button>
           )}
-
 
           {/* Site Owner Admin Portal Button: Invisible to public visitors, visible ONLY to me (owner) */}
           {onOpenAdmin && isOwnerVisible && (
@@ -333,6 +394,25 @@ export function Navbar({
               <span className="text-[10px] font-mono uppercase bg-amber-400 text-black px-1.5 py-0.5 rounded font-black shrink-0">
                 Notice
               </span>
+            </button>
+
+            {/* Mobile Response Portal Button */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (onOpenResponsePortal) onOpenResponsePortal();
+              }}
+              className="flex items-center justify-between rounded-xl border border-amber-400/40 bg-zinc-900/90 p-2.5 sm:p-3 text-xs font-bold text-white hover:bg-zinc-800 transition-colors shadow-sm cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Inbox className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Inbox</span>
+              </div>
+              {unreadRepliesCount > 0 && (
+                <span className="rounded-full bg-red-500 text-white px-2 py-0.2 text-[9px] font-mono font-bold animate-pulse">
+                  {unreadRepliesCount} New
+                </span>
+              )}
             </button>
 
             {/* Mobile Navigation Pages */}

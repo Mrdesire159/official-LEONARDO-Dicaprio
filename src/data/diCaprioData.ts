@@ -1384,6 +1384,19 @@ export const DEFAULT_CHANNELED_MESSAGES: ChanneledMessage[] = [
     evidenceUrl: 'https://wa.me/evidence-file-2026',
     timestamp: 'Yesterday at 11:20 AM',
     status: 'resolved',
+    reply: 'Thank you for flagging this imposter. Our cyber-intelligence and legal counsel have submitted an emergency injunction and cease-and-desist to WhatsApp and Meta Legal. The fraudulent account has been permanently shut down.',
+    repliedAt: 'Yesterday at 01:45 PM',
+    replies: [
+      {
+        id: 'rep-seed-3a',
+        sender: 'Leonardo DiCaprio Security Desk',
+        text: 'Thank you for flagging this imposter. Our cyber-intelligence and legal counsel have submitted an emergency injunction and cease-and-desist to WhatsApp and Meta Legal. The fraudulent account has been permanently shut down.',
+        timestamp: 'Yesterday at 01:45 PM',
+        channelMethod: 'auto_direct_relay',
+        verificationHash: 'LD-SEC-99882201',
+        relayStatus: 'Verified On-Site Direct Stream',
+      },
+    ],
   },
 ];
 

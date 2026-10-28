@@ -44,6 +44,7 @@ import { PageNavigationHeader } from './components/PageNavigationHeader';
 import { FloatingBackButton } from './components/FloatingBackButton';
 import { LiveChatAgent } from './components/LiveChatAgent';
 import { AdminPortalModal } from './components/AdminPortalModal';
+import { VisitorResponsePortalModal } from './components/VisitorResponsePortalModal';
 import { Footer } from './components/Footer';
 import { ArrowRight, ArrowLeft, Home, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe, ShieldCheck, CheckCircle2, X } from 'lucide-react';
 
@@ -56,6 +57,8 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSocialBallOpen, setIsSocialBallOpen] = useState(false);
   const [isOwnerAdminOpen, setIsOwnerAdminOpen] = useState(false);
+  const [isResponsePortalOpen, setIsResponsePortalOpen] = useState(false);
+  const [selectedPortalMessageId, setSelectedPortalMessageId] = useState<string | null>(null);
   const [ambientAudioPlaying, setAmbientAudioPlaying] = useState(false);
 
   // Full-Screen Cinematic Landing Intro state
@@ -73,10 +76,34 @@ export default function App() {
   } | null>(null);
 
   useEffect(() => {
+    const playChime = () => {
+      try {
+        if (localStorage.getItem('ld_notification_sound_enabled') === 'false') return;
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.35);
+        }
+      } catch {
+        // audio context blocked or unsupported
+      }
+    };
+
     const handleReplyAlert = (e: Event) => {
       const data = (e as CustomEvent<{ messageId: string; recipientName?: string; subject?: string; reply: MessageReply }>).detail;
       if (data?.reply) {
         setIncomingReplyAlert(data);
+        playChime();
         setTimeout(() => setIncomingReplyAlert((curr) => (curr?.messageId === data.messageId ? null : curr)), 12000);
       }
     };
@@ -91,6 +118,7 @@ export default function App() {
               messageId: event.data.messageId,
               reply: event.data.reply,
             });
+            playChime();
             setTimeout(() => setIncomingReplyAlert(null), 12000);
           }
         };
@@ -493,6 +521,10 @@ export default function App() {
         activePage={activePage}
         onSelectPage={handleSelectPage}
         onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
+        onOpenResponsePortal={(msgId) => {
+          setSelectedPortalMessageId(msgId || null);
+          setIsResponsePortalOpen(true);
+        }}
         ambientAudioPlaying={ambientAudioPlaying}
         onToggleAmbientAudio={toggleAmbientAudio}
         onOpenProfile={() => setIsProfileOpen(true)}
@@ -751,6 +783,19 @@ export default function App() {
         isOpen={isVerificationModalOpen}
         onClose={() => setIsVerificationModalOpen(false)}
         currentTheme={currentTheme}
+        onOpenResponsePortal={(msgId) => {
+          setSelectedPortalMessageId(msgId || null);
+          setIsResponsePortalOpen(true);
+        }}
+      />
+
+      {/* Visitor Response & Reply Portal (Zero Email Required) */}
+      <VisitorResponsePortalModal
+        isOpen={isResponsePortalOpen}
+        onClose={() => setIsResponsePortalOpen(false)}
+        currentTheme={currentTheme}
+        initialMessageId={selectedPortalMessageId}
+        onOpenAdminPortal={() => setIsOwnerAdminOpen(true)}
       />
 
       {/* Secure Checkout & VIP Reservation Modal */}
@@ -876,12 +921,13 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                setIsVerificationModalOpen(true);
+                setSelectedPortalMessageId(incomingReplyAlert.messageId);
+                setIsResponsePortalOpen(true);
                 setIncomingReplyAlert(null);
               }}
-              className="rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow active:scale-95"
+              className="rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow active:scale-95 flex items-center gap-1.5"
             >
-              View Inquiries &amp; Response
+              <span>Open Response Portal</span>
             </button>
           </div>
         </div>

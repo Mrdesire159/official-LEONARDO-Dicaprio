@@ -15,7 +15,8 @@ import {
   MessageSquare,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Inbox
 } from 'lucide-react';
 import { LuxuryTheme, ChanneledMessage } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES, OFFICIAL_CONTACT_EMAIL } from '../data/diCaprioData';
@@ -24,12 +25,14 @@ interface OfficialVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTheme: LuxuryTheme;
+  onOpenResponsePortal?: (messageId?: string) => void;
 }
 
 export function OfficialVerificationModal({
   isOpen,
   onClose,
   currentTheme,
+  onOpenResponsePortal,
 }: OfficialVerificationModalProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isEmailDeskExpanded, setIsEmailDeskExpanded] = useState(false);
@@ -411,9 +414,24 @@ export function OfficialVerificationModal({
                 </div>
 
                 {dispatchSuccess && (
-                  <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
-                    <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span>Message dispatched directly to the Admin Portal.</span>
+                  <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 text-emerald-300 text-xs flex flex-wrap items-center justify-between gap-2 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span>Message dispatched directly to the Admin Portal.</span>
+                    </div>
+                    {onOpenResponsePortal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenResponsePortal();
+                          onClose();
+                        }}
+                        className="rounded-lg bg-emerald-400 text-black px-2.5 py-1 text-[11px] font-bold hover:bg-emerald-300 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <Inbox className="h-3 w-3" />
+                        <span>View in Response Portal →</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </form>
@@ -435,11 +453,27 @@ export function OfficialVerificationModal({
                     </span>
                   </button>
 
-                  {myInquiries.some((m) => m.status === 'resolved' || m.reply) && (
-                    <span className="text-[9px] font-mono uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
-                      <Check className="h-2.5 w-2.5" /> Official Reply Ready
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {onOpenResponsePortal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenResponsePortal();
+                          onClose();
+                        }}
+                        className="text-[10px] text-amber-300 hover:text-white underline font-mono flex items-center gap-1 cursor-pointer"
+                        title="Open full Response Portal"
+                      >
+                        <Inbox className="h-3 w-3 text-amber-400" />
+                        <span className="hidden sm:inline">Open Response Portal</span>
+                      </button>
+                    )}
+                    {myInquiries.some((m) => m.status === 'resolved' || m.reply) && (
+                      <span className="text-[9px] font-mono uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                        <Check className="h-2.5 w-2.5" /> Official Reply Ready
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {showMyInquiries && (
