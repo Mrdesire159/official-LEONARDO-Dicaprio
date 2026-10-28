@@ -12,7 +12,8 @@ import {
   CartItem,
   OrderRecord,
   UserProfile,
-  Testimonial
+  Testimonial,
+  MessageReply
 } from './types';
 import {
   THEME_CONFIGS,
@@ -44,7 +45,7 @@ import { FloatingBackButton } from './components/FloatingBackButton';
 import { LiveChatAgent } from './components/LiveChatAgent';
 import { AdminPortalModal } from './components/AdminPortalModal';
 import { Footer } from './components/Footer';
-import { ArrowRight, ArrowLeft, Home, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Home, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe, ShieldCheck, CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
   const [currentTheme, setCurrentTheme] = useState<LuxuryTheme>('gold');
@@ -62,6 +63,48 @@ export default function App() {
 
   // User requirement: "let the social media accouint be the first to pop up while opeing the site with a warning note saying this is one and only Leonardo DiCaprio social media and site report tany imposter to the telegram chanel"
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState<boolean>(true);
+
+  // Real-time automatic reply alert toast (Zero email dependency)
+  const [incomingReplyAlert, setIncomingReplyAlert] = useState<{
+    messageId: string;
+    recipientName?: string;
+    subject?: string;
+    reply: MessageReply;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleReplyAlert = (e: Event) => {
+      const data = (e as CustomEvent<{ messageId: string; recipientName?: string; subject?: string; reply: MessageReply }>).detail;
+      if (data?.reply) {
+        setIncomingReplyAlert(data);
+        setTimeout(() => setIncomingReplyAlert((curr) => (curr?.messageId === data.messageId ? null : curr)), 12000);
+      }
+    };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('ld_channeled_messages_stream');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'admin_reply' && event.data.reply) {
+            setIncomingReplyAlert({
+              messageId: event.data.messageId,
+              reply: event.data.reply,
+            });
+            setTimeout(() => setIncomingReplyAlert(null), 12000);
+          }
+        };
+      }
+    } catch {
+      // ignore
+    }
+
+    window.addEventListener('official-reply-alert', handleReplyAlert);
+    return () => {
+      window.removeEventListener('official-reply-alert', handleReplyAlert);
+      if (bc) bc.close();
+    };
+  }, []);
 
   // Multi-page navigation state
   const [activePage, setActivePage] = useState<PageId>(() => {
@@ -793,6 +836,55 @@ export default function App() {
           reducedMotion={reducedMotion}
           onComplete={() => setShowLandingIntro(false)}
         />
+      )}
+
+      {/* Global Real-Time Reply Alert (Direct On-Screen Notification - Zero Email Needed) */}
+      {incomingReplyAlert && (
+        <div className="fixed top-20 right-3 sm:right-6 z-50 max-w-sm sm:max-w-md w-full rounded-2xl border-2 border-amber-400 bg-zinc-950/98 p-4 text-white shadow-[0_0_50px_rgba(245,158,11,0.6)] backdrop-blur-2xl animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-black shadow-md">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-mono uppercase font-bold text-amber-300 block tracking-wider">
+                  Official Executive Reply Received
+                </span>
+                <span className="text-xs font-bold text-white truncate block">
+                  {incomingReplyAlert.subject || 'Verified Response from Leonardo DiCaprio Office'}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setIncomingReplyAlert(null)}
+              className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 cursor-pointer"
+              aria-label="Dismiss alert"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <p className="mt-2 text-xs text-zinc-200 line-clamp-3 bg-black/70 p-2.5 rounded-xl border border-white/10 font-sans leading-relaxed">
+            "{incomingReplyAlert.reply.text}"
+          </p>
+
+          <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-white/10 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>Delivered Directly (Zero Email)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsVerificationModalOpen(true);
+                setIncomingReplyAlert(null);
+              }}
+              className="rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow active:scale-95"
+            >
+              View Inquiries &amp; Response
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

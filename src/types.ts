@@ -156,7 +156,9 @@ export interface MessageReply {
   sender: string;
   text: string;
   timestamp: string;
-  channelMethod?: 'direct_in_app' | 'email' | 'official_desk';
+  channelMethod?: 'direct_in_app' | 'email' | 'official_desk' | 'telegram_relay' | 'secure_portal_push' | 'auto_direct_relay';
+  verificationHash?: string;
+  relayStatus?: string;
 }
 
 export interface ChanneledMessage {

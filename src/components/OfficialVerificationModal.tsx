@@ -259,8 +259,8 @@ export function OfficialVerificationModal({
                 </div>
               </div>
 
-              {/* Action Buttons: Channel directly to Admin Portal */}
-              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
                   type="button"
                   onClick={() => handleCopy(OFFICIAL_CONTACT_EMAIL, 'email-modal')}
@@ -280,25 +280,11 @@ export function OfficialVerificationModal({
                   )}
                 </button>
 
-                {/* Primary Button: Channel Message Directly to Admin Portal */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEmailDeskExpanded(true);
-                    setCategory('official_contact');
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)] hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
-                  title="Channel message directly into Admin Portal inbox"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Channel Message to Admin</span>
-                </button>
-
-                {/* Toggle Button to open/close direct form */}
+                {/* Toggle Button to open/close direct transmission form */}
                 <button
                   type="button"
                   onClick={() => setIsEmailDeskExpanded(!isEmailDeskExpanded)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
                   title={isEmailDeskExpanded ? 'Collapse form' : 'Open transmission form'}
                 >
                   <span>{isEmailDeskExpanded ? 'Close Form' : 'Write Direct'}</span>
@@ -308,6 +294,24 @@ export function OfficialVerificationModal({
                     <ChevronDown className="h-3.5 w-3.5 text-amber-400" />
                   )}
                 </button>
+              </div>
+            </div>
+
+            {/* Official Correspondence & Liaison Narrative */}
+            <div className="mt-3.5 rounded-xl sm:rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-950/30 via-zinc-950/70 to-black/80 p-3 sm:p-4 text-left space-y-1.5 sm:space-y-2">
+              <div className="flex items-start gap-2 sm:gap-2.5">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs sm:text-sm font-bold text-amber-200 font-cinzel tracking-wide">
+                    Direct Liaison &amp; Official Executive Correspondence:
+                  </p>
+                  <p className="text-[11px] sm:text-sm text-amber-100/90 leading-relaxed">
+                    Connecting with Leonardo DiCaprio and the Appian Way executive team is strictly managed through this authorized desk. From global planetary conservation initiatives and environmental summits to landmark cinematic projects and accredited VIP invitations, each dispatch receives prioritized review by verified personal liaisons.
+                  </p>
+                  <p className="text-[11px] sm:text-sm text-amber-200/95 leading-relaxed pt-0.5">
+                    To maintain uncompromised privacy and bypass fraudulent third-party intermediaries, submit your transmission directly via <strong className="text-amber-300 underline cursor-pointer" onClick={() => setIsEmailDeskExpanded(true)}>Write Direct</strong> or email <strong className="text-white select-all underline font-mono">{OFFICIAL_CONTACT_EMAIL}</strong>. Responses are securely reviewed and returned to your contact.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -503,9 +507,9 @@ export function OfficialVerificationModal({
                               </p>
                               <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400/90 pt-1">
                                 <span>✓ Real-Time Verified Response</span>
-                                {inq.senderContact.includes('@') && (
-                                  <span className="text-zinc-400">Also channeled to your email</span>
-                                )}
+                                <span className="text-amber-300 font-mono">
+                                  {rep.verificationHash ? `Sig: ${rep.verificationHash}` : '⚡ Direct Digital Relay (Zero Email Required)'}
+                                </span>
                               </div>
                             </div>
                           ))}
