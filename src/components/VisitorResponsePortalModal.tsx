@@ -320,7 +320,7 @@ export function VisitorResponsePortalModal({
     setNewMessage('');
     setActiveMessageId(newMsg.id);
     setActiveTab('my_threads');
-    setNewInquirySuccess('✓ Direct inquiry channeled to Admin Portal! Replies will arrive directly here on-site.');
+    setNewInquirySuccess('✓ Your message has been sent directly to Leonardo DiCaprio! His reply will arrive right here in your inbox.');
     setTimeout(() => setNewInquirySuccess(null), 6000);
   };
 
@@ -672,10 +672,10 @@ export function VisitorResponsePortalModal({
               <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-4 text-left space-y-1.5">
                 <div className="flex items-center gap-2 text-amber-300 font-cinzel font-bold text-xs sm:text-sm">
                   <Sparkles className="h-4 w-4 text-amber-400" />
-                  Direct Executive Dispatch Desk
+                  Personal Message to Leonardo DiCaprio
                 </div>
                 <p className="text-xs text-zinc-300 leading-relaxed font-light">
-                  Messages dispatched here stream directly to the Site Owner Admin Portal in real time. Official replies return straight to this portal so you never have to check external emails.
+                  Your message is delivered straight to Leonardo DiCaprio and his private team. Whether you are reaching out about environmental action, cinema, or a personal thought, every message is received with genuine care and privacy. When Leonardo replies, his message will appear directly here in your private inbox.
                 </p>
               </div>
 
@@ -713,8 +713,8 @@ export function VisitorResponsePortalModal({
                       onChange={(e) => setNewCategory(e.target.value as any)}
                       className="w-full rounded-xl border border-white/15 bg-zinc-900/90 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none cursor-pointer"
                     >
-                      <option value="official_contact">Official Correspondence / Liaison</option>
-                      <option value="vip_inquiry">VIP Guild &amp; Philanthropic Experience</option>
+                      <option value="official_contact">Personal Message / Note</option>
+                      <option value="vip_inquiry">VIP Experience &amp; Philanthropy</option>
                       <option value="imposter_report">Imposter Account / Fraud Report</option>
                       <option value="urgent_takedown">Urgent Legal &amp; Security Takedown</option>
                     </select>
@@ -726,7 +726,7 @@ export function VisitorResponsePortalModal({
                       required
                       value={newSubject}
                       onChange={(e) => setNewSubject(e.target.value)}
-                      placeholder="e.g. Cannes 2026 Reservation / Question"
+                      placeholder="e.g. A note on environmental preservation / Film thoughts"
                       className="w-full rounded-xl border border-white/15 bg-zinc-900/90 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
                     />
                   </div>
@@ -739,7 +739,7 @@ export function VisitorResponsePortalModal({
                     required
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Enter your confidential transmission to the Leonardo DiCaprio Executive Desk..."
+                    placeholder="Write your personal message to Leonardo DiCaprio here..."
                     className="w-full rounded-xl border border-white/15 bg-zinc-900/90 p-3 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
                   />
                 </div>
@@ -747,13 +747,13 @@ export function VisitorResponsePortalModal({
                 <div className="pt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    <span>Real-Time Admin Channel Active</span>
+                    <span>Direct Channel to Leonardo</span>
                   </div>
                   <button
                     type="submit"
                     className="rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95"
                   >
-                    Channel Message Directly
+                    Send Message to Leonardo
                   </button>
                 </div>
               </form>
