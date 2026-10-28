@@ -301,14 +301,8 @@ export function OfficialVerificationModal({
             <div className="mt-3.5 rounded-xl sm:rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-950/30 via-zinc-950/70 to-black/80 p-3 sm:p-4 text-left space-y-1.5 sm:space-y-2">
               <div className="flex items-start gap-2 sm:gap-2.5">
                 <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-xs sm:text-sm font-bold text-amber-200 font-cinzel tracking-wide">
-                    Direct Liaison &amp; Official Executive Correspondence:
-                  </p>
-                  <p className="text-[11px] sm:text-sm text-amber-100/90 leading-relaxed">
-                    Connecting with Leonardo DiCaprio and the Appian Way executive team is strictly managed through this authorized desk. From global planetary conservation initiatives and environmental summits to landmark cinematic projects and accredited VIP invitations, each dispatch receives prioritized review by verified personal liaisons.
-                  </p>
-                  <p className="text-[11px] sm:text-sm text-amber-200/95 leading-relaxed pt-0.5">
+                <div>
+                  <p className="text-[11px] sm:text-sm text-amber-200/95 leading-relaxed">
                     To maintain uncompromised privacy and bypass fraudulent third-party intermediaries, submit your transmission directly via <strong className="text-amber-300 underline cursor-pointer" onClick={() => setIsEmailDeskExpanded(true)}>Write Direct</strong> or email <strong className="text-white select-all underline font-mono">{OFFICIAL_CONTACT_EMAIL}</strong>. Responses are securely reviewed and returned to your contact.
                   </p>
                 </div>
