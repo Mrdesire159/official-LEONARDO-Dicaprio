@@ -262,32 +262,13 @@ export function OfficialVerificationModal({
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons: Maintain only Write Direct */}
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => handleCopy(OFFICIAL_CONTACT_EMAIL, 'email-modal')}
-                  className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-white/5"
-                  title="Copy email address"
-                >
-                  {copiedKey === 'email-modal' ? (
-                    <>
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                      <span className="text-emerald-400 font-mono text-[11px]">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3.5 w-3.5" />
-                      <span className="font-mono text-[11px]">Copy</span>
-                    </>
-                  )}
-                </button>
-
                 {/* Toggle Button to open/close direct transmission form */}
                 <button
                   type="button"
                   onClick={() => setIsEmailDeskExpanded(!isEmailDeskExpanded)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 shadow-sm"
                   title={isEmailDeskExpanded ? 'Collapse form' : 'Open transmission form'}
                 >
                   <span>{isEmailDeskExpanded ? 'Close Form' : 'Write Direct'}</span>
@@ -297,18 +278,6 @@ export function OfficialVerificationModal({
                     <ChevronDown className="h-3.5 w-3.5 text-amber-400" />
                   )}
                 </button>
-              </div>
-            </div>
-
-            {/* Official Correspondence & Liaison Narrative */}
-            <div className="mt-3.5 rounded-xl sm:rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-950/30 via-zinc-950/70 to-black/80 p-3 sm:p-4 text-left space-y-1.5 sm:space-y-2">
-              <div className="flex items-start gap-2 sm:gap-2.5">
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[11px] sm:text-sm text-amber-200/95 leading-relaxed">
-                    To maintain uncompromised privacy and bypass fraudulent third-party intermediaries, submit your transmission directly via <strong className="text-amber-300 underline cursor-pointer" onClick={() => setIsEmailDeskExpanded(true)}>Write Direct</strong> or email <strong className="text-white select-all underline font-mono">{OFFICIAL_CONTACT_EMAIL}</strong>. Responses are securely reviewed and returned to your contact.
-                  </p>
-                </div>
               </div>
             </div>
 
