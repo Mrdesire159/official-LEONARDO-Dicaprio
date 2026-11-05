@@ -81,6 +81,14 @@ export const USER_PHOTOS: PhotoAsset[] = [
     themeMatch: 'platinum',
     aspectRatio: '2:3',
     badgeText: 'Vanity Fair Gala',
+    url: '/google-display-photo.webp',
+    fallbackUrl: '/images/OIP (61).webp',
+    year: '2016',
+    filmOrEvent: 'Vanity Fair Oscar Party, Beverly Hills',
+    description: 'Celebrating his landmark Oscar victory holding the Academy Award statuette, embodying peerless cinematic achievement and personal dedication.',
+    themeMatch: 'gold',
+    aspectRatio: '2:3',
+    badgeText: 'Oscar Winner Profile',
   },
   {
     id: 'photo-dec',
@@ -1346,7 +1354,7 @@ export const DEFAULT_USER_PROFILE = {
   patronId: '',
   tier: 'Guest Patron',
   joinedDate: '2026 Season',
-  avatarUrl: '/images/dec.webp',
+  avatarUrl: '/google-display-photo.webp',
   totalSpend: 0,
   loyaltyPoints: 0,
 };
