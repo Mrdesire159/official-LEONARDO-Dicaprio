@@ -472,12 +472,12 @@ export default function App() {
     >
       {/* Dynamic Ambient Background Layer using the User's Active Selected Photo */}
       <div
-        className="pointer-events-none fixed inset-0 z-0 opacity-20 mix-blend-screen transition-all duration-1000 ease-in-out"
+        className="pointer-events-none fixed inset-0 z-0 opacity-35 mix-blend-screen transition-all duration-1000 ease-in-out"
         style={{
           backgroundImage: `radial-gradient(circle at 50% 30%, ${themeConfig.accent}25 0%, transparent 70%), url(${activeBgPhoto.url})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
-          filter: 'blur(30px) saturate(1.4) brightness(0.6)',
+          filter: 'saturate(1.05) brightness(0.65)',
         }}
       />
 

@@ -70,6 +70,19 @@ export const THEME_CONFIGS: Record<LuxuryTheme, ThemeConfig> = {
 
 export const USER_PHOTOS: PhotoAsset[] = [
   {
+    id: 'photo-oip61',
+    title: 'Vanity Fair Oscar Party Celebration',
+    filename: 'OIP (61).webp',
+    url: '/images/leonardo-display.webp',
+    fallbackUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Leonardo_DiCaprio_2016.jpg',
+    year: '2016',
+    filmOrEvent: 'Vanity Fair Oscar Party, Beverly Hills',
+    description: 'Celebrating his landmark Oscar victory amongst legendary directors, fellow Academy laureates, and lifelong cinematic collaborators.',
+    themeMatch: 'platinum',
+    aspectRatio: '2:3',
+    badgeText: 'Vanity Fair Gala',
+  },
+  {
     id: 'photo-dec',
     title: 'Cannes & Red Carpet Gala Elegance',
     filename: 'dec.webp',
@@ -99,7 +112,7 @@ export const USER_PHOTOS: PhotoAsset[] = [
     id: 'photo-img4',
     title: 'The Academy Award Triumph',
     filename: 'images (4).jfif',
-    url: '/google-display-photo.jpg',
+    url: '/images/images (4).jfif',
     fallbackUrl: '/images/images (4).jfif',
     year: '2016',
     filmOrEvent: '88th Academy Awards Victory',
@@ -160,19 +173,7 @@ export const USER_PHOTOS: PhotoAsset[] = [
     aspectRatio: '2:3',
     badgeText: 'Oscar Press Room',
   },
-  {
-    id: 'photo-oip61',
-    title: 'Vanity Fair Oscar Party Celebration',
-    filename: 'OIP (61).webp',
-    url: '/images/OIP (61).webp',
-    fallbackUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Leonardo_DiCaprio_2016.jpg',
-    year: '2016',
-    filmOrEvent: 'Vanity Fair Oscar Party, Beverly Hills',
-    description: 'Celebrating his landmark Oscar victory amongst legendary directors, fellow Academy laureates, and lifelong cinematic collaborators.',
-    themeMatch: 'platinum',
-    aspectRatio: '2:3',
-    badgeText: 'Vanity Fair Gala',
-  },
+
   {
     id: 'photo-awa',
     title: 'The Golden Laureate Winner Portrait',
