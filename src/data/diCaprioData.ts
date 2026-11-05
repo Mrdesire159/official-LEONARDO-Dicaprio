@@ -70,6 +70,19 @@ export const THEME_CONFIGS: Record<LuxuryTheme, ThemeConfig> = {
 
 export const USER_PHOTOS: PhotoAsset[] = [
   {
+    id: 'photo-oip61',
+    title: 'Vanity Fair Oscar Party Celebration',
+    filename: 'OIP (61).webp',
+    url: '/google-display-photo.webp',
+    fallbackUrl: '/images/OIP (61).webp',
+    year: '2016',
+    filmOrEvent: 'Vanity Fair Oscar Party, Beverly Hills',
+    description: 'Celebrating his landmark Oscar victory holding the Academy Award statuette, embodying peerless cinematic achievement and personal dedication.',
+    themeMatch: 'gold',
+    aspectRatio: '2:3',
+    badgeText: 'Oscar Winner Profile',
+  },
+  {
     id: 'photo-dec',
     title: 'Cannes & Red Carpet Gala Elegance',
     filename: 'dec.webp',
@@ -160,19 +173,7 @@ export const USER_PHOTOS: PhotoAsset[] = [
     aspectRatio: '2:3',
     badgeText: 'Oscar Press Room',
   },
-  {
-    id: 'photo-oip61',
-    title: 'Vanity Fair Oscar Party Celebration',
-    filename: 'OIP (61).webp',
-    url: '/images/OIP (61).webp',
-    fallbackUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Leonardo_DiCaprio_2016.jpg',
-    year: '2016',
-    filmOrEvent: 'Vanity Fair Oscar Party, Beverly Hills',
-    description: 'Celebrating his landmark Oscar victory amongst legendary directors, fellow Academy laureates, and lifelong cinematic collaborators.',
-    themeMatch: 'platinum',
-    aspectRatio: '2:3',
-    badgeText: 'Vanity Fair Gala',
-  },
+
   {
     id: 'photo-awa',
     title: 'The Golden Laureate Winner Portrait',
@@ -1345,7 +1346,7 @@ export const DEFAULT_USER_PROFILE = {
   patronId: '',
   tier: 'Guest Patron',
   joinedDate: '2026 Season',
-  avatarUrl: '/images/dec.webp',
+  avatarUrl: '/google-display-photo.webp',
   totalSpend: 0,
   loyaltyPoints: 0,
 };
