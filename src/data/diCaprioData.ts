@@ -1346,7 +1346,7 @@ export const DEFAULT_USER_PROFILE = {
   patronId: '',
   tier: 'Guest Patron',
   joinedDate: '2026 Season',
-  avatarUrl: '/google-display-photo.webp',
+  avatarUrl: '/profile.png',
   totalSpend: 0,
   loyaltyPoints: 0,
 };
