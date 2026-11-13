@@ -1,5 +1,6 @@
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import http from 'http';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
@@ -12,8 +13,27 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function getCliArg(flag: string): string | undefined {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag && args[i + 1]) {
+      return args[i + 1];
+    }
+    if (args[i].startsWith(`${flag}=`)) {
+      return args[i].slice(flag.length + 1);
+    }
+  }
+  return undefined;
+}
+
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const cliPort = getCliArg('--port') ?? getCliArg('-p');
+const PORT = cliPort
+  ? parseInt(cliPort, 10)
+  : process.env.PORT
+  ? parseInt(process.env.PORT, 10)
+  : 3000;
+const HOST = getCliArg('--host') || process.env.HOST || '0.0.0.0';
 
 app.use(express.json());
 
@@ -320,14 +340,13 @@ app.get('/health', (_req: Request, res: Response) => {
 // Setup Vite or static serving
 async function startServer() {
   const isCloudRun = Boolean(process.env.K_SERVICE || process.env.K_REVISION);
-  const isProduction =
-    process.env.NODE_ENV === 'production' ||
-    isCloudRun ||
-    (process.env.PORT !== undefined && process.env.PORT !== '3000');
+  const isProduction = process.env.NODE_ENV === 'production' || isCloudRun;
 
   const distPath = path.resolve(__dirname, 'dist');
   const indexPath = path.resolve(distPath, 'index.html');
   const hasDist = fs.existsSync(indexPath);
+
+  const httpServer = http.createServer(app);
 
   if (isProduction && hasDist) {
     // Cache immutable assets
@@ -365,21 +384,47 @@ async function startServer() {
       });
     });
   } else {
-    // Development or fallback when dist is not built: use Vite dev middlewares
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
+    // Bind HTTP server immediately so port/health checks pass without waiting on Vite cold-init.
+    // Attach HMR to httpServer (or disable when DISABLE_HMR=true) so port 24678 never collides.
+    const hmrConfig =
+      process.env.DISABLE_HMR === 'true' ? false : { server: httpServer };
+
+    const vitePromise = createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: hmrConfig,
+      },
       appType: 'spa',
+    }).catch((err) => {
+      console.error('Failed to initialize Vite dev server:', err);
+      process.exit(1);
     });
-    app.use(vite.middlewares);
+
+    app.use(async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const vite = await vitePromise;
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.on('error', (err) => {
+    console.error('Server failed to start:', err);
+    process.exit(1);
+  });
+
+  httpServer.listen(PORT, HOST, () => {
     console.log(
-      `VIP Experience Server running on http://0.0.0.0:${PORT} (Mode: ${
+      `VIP Experience Server running on http://${HOST}:${PORT} (Mode: ${
         isProduction && hasDist ? 'Production' : 'Development/Vite-Fallback'
       })`
     );
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Fatal error during server startup:', err);
+  process.exit(1);
+});
