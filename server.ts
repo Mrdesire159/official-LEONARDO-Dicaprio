@@ -340,7 +340,9 @@ app.get('/health', (_req: Request, res: Response) => {
 // Setup Vite or static serving
 async function startServer() {
   const isCloudRun = Boolean(process.env.K_SERVICE || process.env.K_REVISION);
-  const isProduction = process.env.NODE_ENV === 'production' || isCloudRun;
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    (isCloudRun && process.env.NODE_ENV !== 'development');
 
   const distPath = path.resolve(__dirname, 'dist');
   const indexPath = path.resolve(distPath, 'index.html');
@@ -385,14 +387,15 @@ async function startServer() {
     });
   } else {
     // Bind HTTP server immediately so port/health checks pass without waiting on Vite cold-init.
-    // Attach HMR to httpServer (or disable when DISABLE_HMR=true) so port 24678 never collides.
-    const hmrConfig =
-      process.env.DISABLE_HMR === 'true' ? false : { server: httpServer };
+    // Disable Vite's standalone WebSocket server when DISABLE_HMR=true (Vite 8 uses server.ws),
+    // otherwise attach it to httpServer so port 24678 is never bound separately.
+    const disableHmr = process.env.DISABLE_HMR === 'true';
 
     const vitePromise = createViteServer({
       server: {
         middlewareMode: true,
-        hmr: hmrConfig,
+        hmr: !disableHmr,
+        ws: disableHmr ? false : { server: httpServer },
       },
       appType: 'spa',
     }).catch((err) => {
