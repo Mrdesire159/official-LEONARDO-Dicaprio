@@ -351,20 +351,32 @@ function isPublicIpAddress(rawIp: string): boolean {
 }
 
 function extractClientPublicIp(req: Request): string | null {
-  const forwarded = req.headers['x-forwarded-for'];
   const candidates: string[] = [];
 
+  // Prioritize single-IP headers injected by Netlify, Cloudflare, Fastly, and Google Cloud proxies
+  const singleHeaders = [
+    'x-nf-client-connection-ip',
+    'cf-connecting-ip',
+    'true-client-ip',
+    'fastly-client-ip',
+    'x-appengine-user-ip',
+    'x-real-ip',
+    'x-client-ip',
+  ];
+  for (const header of singleHeaders) {
+    const val = req.headers[header];
+    if (typeof val === 'string' && val.trim()) {
+      candidates.push(val.trim());
+    }
+  }
+
+  const forwarded = req.headers['x-forwarded-for'];
   if (typeof forwarded === 'string') {
     candidates.push(...forwarded.split(',').map((s) => s.trim()));
   } else if (Array.isArray(forwarded)) {
     for (const item of forwarded) {
       candidates.push(...item.split(',').map((s) => s.trim()));
     }
-  }
-
-  const realIp = req.headers['x-real-ip'];
-  if (typeof realIp === 'string') {
-    candidates.push(realIp.trim());
   }
 
   if (req.socket?.remoteAddress) {
@@ -634,12 +646,23 @@ app.get('/api/location/detect', async (req: Request, res: Response) => {
   let quotaExceeded = false;
   const capturedAt = new Date().toISOString();
 
-  // 1. Check real visitor public IP via validated public IP lookup
+  // 1. Check real visitor public IP via validated public IP lookup (zero browser prompt required)
   const publicIp = extractClientPublicIp(req);
   if (publicIp) {
+    let ipGeo: {
+      lat: number;
+      lng: number;
+      city?: string;
+      region?: string;
+      regionCode?: string;
+      country?: string;
+      countryCode?: string;
+    } | null = null;
+
+    // Provider A: ipwho.is
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+      const timeout = setTimeout(() => controller.abort(), 3500);
       const ipResp = await fetch(`https://ipwho.is/${encodeURIComponent(publicIp)}`, {
         method: 'GET',
         headers: { Accept: 'application/json' },
@@ -666,43 +689,100 @@ app.get('/api/location/detect', async (req: Request, res: Response) => {
           Number.isFinite(ipData.latitude) &&
           Number.isFinite(ipData.longitude)
         ) {
-          // Enrich with Google Maps Geocoding API v4 when available
-          const enriched = await reverseGeocodeWithGoogle(ipData.latitude, ipData.longitude);
-          if (enriched.quotaExceeded) quotaExceeded = true;
-
-          if (enriched.location) {
-            res.json({
-              location: {
-                ...enriched.location,
-                source: 'network_ip',
-                capturedAt,
-              },
-              quotaExceeded,
-            });
-            return;
-          }
-
-          const parts = [ipData.city, ipData.region_code || ipData.region, ipData.country_code || ipData.country].filter(Boolean);
-          res.json({
-            location: {
-              lat: ipData.latitude,
-              lng: ipData.longitude,
-              label: parts.join(', ') || `${ipData.latitude.toFixed(4)}, ${ipData.longitude.toFixed(4)}`,
-              formattedAddress: [ipData.city, ipData.region, ipData.country].filter(Boolean).join(', ') || undefined,
-              city: ipData.city,
-              region: ipData.region,
-              country: ipData.country,
-              countryCode: ipData.country_code,
-              source: 'network_ip',
-              capturedAt,
-            },
-            quotaExceeded,
-          });
-          return;
+          ipGeo = {
+            lat: ipData.latitude,
+            lng: ipData.longitude,
+            city: ipData.city,
+            region: ipData.region,
+            regionCode: ipData.region_code,
+            country: ipData.country,
+            countryCode: ipData.country_code,
+          };
         }
       }
     } catch {
-      // Fall through to Google Maps Geolocation API
+      // Fall through to secondary IP geo provider
+    }
+
+    // Provider B: freeipapi.com fallback if primary IP lookup timed out or rate-limited
+    if (!ipGeo) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+        const fbResp = await fetch(`https://freeipapi.com/api/json/${encodeURIComponent(publicIp)}`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (fbResp.ok) {
+          const fbData = (await fbResp.json().catch(() => null)) as {
+            latitude?: number;
+            longitude?: number;
+            cityName?: string;
+            regionName?: string;
+            countryName?: string;
+            countryCode?: string;
+          } | null;
+
+          if (
+            fbData &&
+            typeof fbData.latitude === 'number' &&
+            typeof fbData.longitude === 'number' &&
+            Number.isFinite(fbData.latitude) &&
+            Number.isFinite(fbData.longitude) &&
+            (fbData.latitude !== 0 || fbData.longitude !== 0)
+          ) {
+            ipGeo = {
+              lat: fbData.latitude,
+              lng: fbData.longitude,
+              city: fbData.cityName,
+              region: fbData.regionName,
+              country: fbData.countryName,
+              countryCode: fbData.countryCode,
+            };
+          }
+        }
+      } catch {
+        // Fall through to Google Maps Geolocation API
+      }
+    }
+
+    if (ipGeo) {
+      // Enrich with Google Maps Geocoding API v4 when available
+      const enriched = await reverseGeocodeWithGoogle(ipGeo.lat, ipGeo.lng);
+      if (enriched.quotaExceeded) quotaExceeded = true;
+
+      if (enriched.location) {
+        res.json({
+          location: {
+            ...enriched.location,
+            source: 'network_ip',
+            capturedAt,
+          },
+          quotaExceeded,
+        });
+        return;
+      }
+
+      const parts = [ipGeo.city, ipGeo.regionCode || ipGeo.region, ipGeo.countryCode || ipGeo.country].filter(Boolean);
+      res.json({
+        location: {
+          lat: ipGeo.lat,
+          lng: ipGeo.lng,
+          label: parts.join(', ') || `${ipGeo.lat.toFixed(4)}, ${ipGeo.lng.toFixed(4)}`,
+          formattedAddress: [ipGeo.city, ipGeo.region, ipGeo.country].filter(Boolean).join(', ') || undefined,
+          city: ipGeo.city,
+          region: ipGeo.region,
+          country: ipGeo.country,
+          countryCode: ipGeo.countryCode,
+          source: 'network_ip',
+          capturedAt,
+        },
+        quotaExceeded,
+      });
+      return;
     }
   }
 

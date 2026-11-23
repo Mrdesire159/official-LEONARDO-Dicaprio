@@ -972,15 +972,17 @@ export default function App() {
             </button>
           </div>
 
-          <p className="mt-2 text-xs text-zinc-200 line-clamp-3 bg-black/70 p-2.5 rounded-xl border border-white/10 font-sans leading-relaxed">
-            "{incomingReplyAlert.reply.text}"
-          </p>
-
-          {incomingReplyAlert.reply.location && (
-            <div className="mt-1.5">
-              <MessageLocationTag location={incomingReplyAlert.reply.location} compact />
-            </div>
-          )}
+          <div className="mt-2 bg-black/70 p-2.5 rounded-xl border border-white/10 space-y-1.5">
+            {incomingReplyAlert.reply.location && (
+              <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/10">
+                <span className="text-[9px] font-mono uppercase text-zinc-400">Live Dispatch</span>
+                <MessageLocationTag location={incomingReplyAlert.reply.location} compact />
+              </div>
+            )}
+            <p className="text-xs text-zinc-200 line-clamp-3 font-sans leading-relaxed">
+              "{incomingReplyAlert.reply.text}"
+            </p>
+          </div>
 
           <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-white/10 flex-wrap">
             <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400">

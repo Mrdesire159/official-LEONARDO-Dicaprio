@@ -21,7 +21,6 @@ import {
   User,
   Image,
   ShieldAlert,
-  Shield,
   X
 } from 'lucide-react';
 import { LuxuryTheme, PhotoAsset } from '../types';
@@ -796,16 +795,6 @@ export function HeroOrbital({
           >
             <Globe className="h-3.5 w-3.5 text-sky-400" />
             <span>50 Testimonials</span>
-          </button>
-
-          <button
-            onClick={() => onNavigateSection('#admin')}
-            className="flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/30 px-4 py-2.5 font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
-            title="Open Site Owner Admin Portal"
-          >
-            <Shield className="h-3.5 w-3.5 text-amber-400" />
-            <span>Admin Portal</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </button>
 
           <AppDownloadButton variant="hero" />

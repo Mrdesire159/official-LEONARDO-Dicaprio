@@ -786,19 +786,22 @@ export function AdminPortalModal({
 
             {/* Real-Time Incoming Message Alert Banner */}
             {realtimeIncomingAlert && (
-              <div className="mb-4 flex items-center justify-between rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/25 via-zinc-900 to-black p-3.5 text-xs text-amber-200 shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center gap-2.5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/25 via-zinc-900 to-black p-3.5 text-xs text-amber-200 shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <span className="font-bold text-white uppercase tracking-wider text-[11px]">⚡ Real-Time Message Received:</span>{' '}
                     <span className="text-zinc-200 font-medium">{realtimeIncomingAlert.senderName}</span>{' '}
                     <span className="text-amber-300 font-mono text-[11px]">(&ldquo;{realtimeIncomingAlert.subject}&rdquo;)</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-auto shrink-0">
+                  {realtimeIncomingAlert.location && (
+                    <MessageLocationTag location={realtimeIncomingAlert.location} compact />
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -813,7 +816,7 @@ export function AdminPortalModal({
                   <button
                     type="button"
                     onClick={() => setRealtimeIncomingAlert(null)}
-                    className="text-zinc-400 hover:text-white p-1 text-xs"
+                    className="text-zinc-400 hover:text-white p-1 text-xs cursor-pointer"
                     aria-label="Dismiss alert"
                   >
                     ✕
@@ -1093,12 +1096,14 @@ export function AdminPortalModal({
                                 <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
                                   {msg.message}
                                 </p>
-                                {msg.location && <MessageLocationTag location={msg.location} compact />}
                               </div>
 
-                              <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap shrink-0">
-                                {msg.timestamp}
-                              </span>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                {msg.location && <MessageLocationTag location={msg.location} compact />}
+                                <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap">
+                                  {msg.timestamp}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1181,14 +1186,18 @@ export function AdminPortalModal({
                             </div>
                           )}
 
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-mono uppercase text-zinc-500 block">Full Message Body</span>
-                            <div className="p-3.5 rounded-xl border border-white/10 bg-black/60 text-xs text-zinc-200 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">
+                          <div className="rounded-xl border border-white/10 bg-black/60 p-3.5 space-y-2">
+                            <div className="flex items-start justify-between gap-2 pb-2 border-b border-white/10">
+                              <span className="text-[10px] font-mono uppercase text-zinc-400 pt-0.5">
+                                Visitor Message
+                              </span>
+                              {current.location && (
+                                <MessageLocationTag location={current.location} />
+                              )}
+                            </div>
+                            <div className="text-xs text-zinc-200 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">
                               {current.message}
                             </div>
-                            {current.location && (
-                              <MessageLocationTag location={current.location} />
-                            )}
                           </div>
 
                           {/* Reply Success Feedback Toast */}
@@ -1438,19 +1447,21 @@ export function AdminPortalModal({
                                     key={r.id}
                                     className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-xs space-y-1.5"
                                   >
-                                    <div className="flex items-center justify-between gap-2 text-[10px]">
-                                      <span className="font-bold text-emerald-300 flex items-center gap-1">
-                                        <ShieldCheck className="h-3 w-3" />
-                                        {r.sender}
-                                      </span>
-                                      <span className="text-zinc-500 font-mono">{r.timestamp}</span>
+                                    <div className="flex items-start justify-between gap-2 text-[10px] pb-1.5 border-b border-emerald-500/20">
+                                      <div className="min-w-0">
+                                        <span className="font-bold text-emerald-300 flex items-center gap-1">
+                                          <ShieldCheck className="h-3 w-3 shrink-0" />
+                                          <span className="truncate">{r.sender}</span>
+                                        </span>
+                                        <span className="text-zinc-500 font-mono block mt-0.5">{r.timestamp}</span>
+                                      </div>
+                                      {'location' in r && r.location && (
+                                        <MessageLocationTag location={r.location} />
+                                      )}
                                     </div>
                                     <p className="text-zinc-200 text-xs leading-relaxed whitespace-pre-wrap font-sans">
                                       {r.text}
                                     </p>
-                                    {'location' in r && r.location && (
-                                      <MessageLocationTag location={r.location} />
-                                    )}
                                     <div className="flex flex-wrap items-center justify-between gap-1.5 text-[9px] font-mono text-emerald-400/80 pt-1.5 border-t border-emerald-500/20">
                                       <div className="flex items-center gap-2">
                                         <span>✓ Verified Delivered</span>

@@ -462,26 +462,27 @@ export function OfficialVerificationModal({
                           className="p-3 sm:p-3.5 rounded-xl border border-white/10 bg-black/75 space-y-2 text-xs"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <span className="font-bold text-white text-xs sm:text-sm block">{inq.subject}</span>
-                              <span className="text-[10px] text-zinc-400 font-mono">Dispatched: {inq.timestamp}</span>
+                            <div className="min-w-0">
+                              <span className="font-bold text-white text-xs sm:text-sm block truncate">{inq.subject}</span>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] text-zinc-400 font-mono">Dispatched: {inq.timestamp}</span>
+                                <span
+                                  className={`text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-full font-bold border shrink-0 ${
+                                    hasReply
+                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                  }`}
+                                >
+                                  {hasReply ? '✓ Official Reply Ready' : 'Under Review'}
+                                </span>
+                              </div>
                             </div>
-                            <span
-                              className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded-full font-bold border shrink-0 ${
-                                hasReply
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                              }`}
-                            >
-                              {hasReply ? '✓ Official Reply Ready' : 'Under Review'}
-                            </span>
+                            {inq.location && <MessageLocationTag location={inq.location} />}
                           </div>
 
-                          <div className="p-2 rounded-lg bg-zinc-900/60 text-[11px] text-zinc-300 border border-white/5">
+                          <div className="p-2.5 rounded-lg bg-zinc-900/60 text-[11px] text-zinc-300 border border-white/5">
                             {inq.message}
                           </div>
-
-                          {inq.location && <MessageLocationTag location={inq.location} />}
 
                           {/* Official Verified Response */}
                           {(inq.replies && inq.replies.length > 0
@@ -501,19 +502,21 @@ export function OfficialVerificationModal({
                               key={rep.id}
                               className="mt-2 p-3 rounded-xl border-2 border-emerald-500/50 bg-emerald-950/30 text-xs space-y-1.5 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
                             >
-                              <div className="flex items-center justify-between text-[10px] border-b border-emerald-500/20 pb-1">
-                                <span className="font-bold text-emerald-300 flex items-center gap-1">
-                                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                                  {rep.sender}
-                                </span>
-                                <span className="text-zinc-400 font-mono">{rep.timestamp}</span>
+                              <div className="flex items-start justify-between gap-2 text-[10px] border-b border-emerald-500/20 pb-1.5">
+                                <div className="min-w-0">
+                                  <span className="font-bold text-emerald-300 flex items-center gap-1">
+                                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                    <span className="truncate">{rep.sender}</span>
+                                  </span>
+                                  <span className="text-zinc-400 font-mono block mt-0.5">{rep.timestamp}</span>
+                                </div>
+                                {'location' in rep && rep.location && (
+                                  <MessageLocationTag location={rep.location} />
+                                )}
                               </div>
                               <p className="text-white text-xs leading-relaxed font-sans whitespace-pre-wrap">
                                 {rep.text}
                               </p>
-                              {'location' in rep && rep.location && (
-                                <MessageLocationTag location={rep.location} />
-                              )}
                               <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400/90 pt-1">
                                 <span>✓ Real-Time Verified Response</span>
                                 <span className="text-amber-300 font-mono">

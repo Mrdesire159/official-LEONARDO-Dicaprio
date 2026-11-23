@@ -499,23 +499,25 @@ export function VisitorResponsePortalModal({
                             : 'border-white/10 bg-black/50 hover:border-white/20 hover:bg-white/5'
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="text-[10px] font-mono text-zinc-400">{msg.timestamp}</span>
-                          {hasReplies ? (
-                            <span className="flex items-center gap-1 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-1.5 py-0.2 text-[9px] font-bold font-mono">
-                              <CheckCircle2 className="h-2.5 w-2.5" />
-                              Reply Received
-                            </span>
-                          ) : (
-                            <span className="rounded bg-amber-400/15 border border-amber-400/30 text-amber-300 px-1.5 py-0.2 text-[9px] font-mono">
-                              Under Review
-                            </span>
-                          )}
+                        <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                          <div className="flex flex-wrap items-center gap-1 min-w-0">
+                            <span className="text-[10px] font-mono text-zinc-400">{msg.timestamp}</span>
+                            {hasReplies ? (
+                              <span className="flex items-center gap-1 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-1.5 py-0.2 text-[9px] font-bold font-mono">
+                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                Reply Received
+                              </span>
+                            ) : (
+                              <span className="rounded bg-amber-400/15 border border-amber-400/30 text-amber-300 px-1.5 py-0.2 text-[9px] font-mono">
+                                Under Review
+                              </span>
+                            )}
+                          </div>
+                          {msg.location && <MessageLocationTag location={msg.location} compact />}
                         </div>
 
                         <h4 className="text-xs font-bold text-white truncate mb-0.5">{msg.subject}</h4>
                         <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">{msg.message}</p>
-                        {msg.location && <MessageLocationTag location={msg.location} compact />}
 
                         <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 pt-1.5 border-t border-white/5 font-mono">
                           <span className="truncate max-w-[140px]">{msg.senderContact}</span>
@@ -549,15 +551,17 @@ export function VisitorResponsePortalModal({
                         {activeMessage.subject}
                       </h3>
 
-                      <div className="rounded-lg bg-zinc-900/90 border border-white/10 p-3 text-xs text-zinc-200 leading-relaxed font-sans mb-3">
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-400 mb-1">
-                          <User className="h-3 w-3 text-amber-400" />
-                          <span>From: {activeMessage.senderName} ({activeMessage.senderContact})</span>
+                      <div className="rounded-lg bg-zinc-900/90 border border-white/10 p-3 text-xs text-zinc-200 leading-relaxed font-sans mb-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2 pb-1.5 border-b border-white/10">
+                          <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-400 min-w-0 pt-0.5">
+                            <User className="h-3 w-3 text-amber-400 shrink-0" />
+                            <span className="truncate">From: {activeMessage.senderName} ({activeMessage.senderContact})</span>
+                          </div>
+                          {activeMessage.location && (
+                            <MessageLocationTag location={activeMessage.location} />
+                          )}
                         </div>
                         <p>{activeMessage.message}</p>
-                        {activeMessage.location && (
-                          <MessageLocationTag location={activeMessage.location} />
-                        )}
                         {activeMessage.evidenceUrl && (
                           <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-amber-300 font-mono">
                             Evidence Reference: <span className="underline">{activeMessage.evidenceUrl}</span>
@@ -608,17 +612,19 @@ export function VisitorResponsePortalModal({
                                   : 'border-2 border-amber-400/60 bg-gradient-to-br from-amber-950/30 via-zinc-950 to-black shadow-md'
                               }`}
                             >
-                              <div className="flex items-center justify-between text-[10px] font-mono">
-                                <span className={`font-bold flex items-center gap-1 ${
-                                  rep.sender.includes('Patron') ? 'text-zinc-300' : 'text-amber-300'
-                                }`}>
-                                  {!rep.sender.includes('Patron') && <ShieldCheck className="h-3 w-3 text-emerald-400" />}
-                                  {rep.sender}
-                                </span>
-                                <span className="text-zinc-400">{rep.timestamp}</span>
+                              <div className="flex items-start justify-between gap-2 text-[10px] font-mono pb-1.5 border-b border-white/10">
+                                <div className="min-w-0">
+                                  <span className={`font-bold flex items-center gap-1 ${
+                                    rep.sender.includes('Patron') ? 'text-zinc-300' : 'text-amber-300'
+                                  }`}>
+                                    {!rep.sender.includes('Patron') && <ShieldCheck className="h-3 w-3 text-emerald-400 shrink-0" />}
+                                    <span className="truncate">{rep.sender}</span>
+                                  </span>
+                                  <span className="text-zinc-400 block mt-0.5">{rep.timestamp}</span>
+                                </div>
+                                {rep.location && <MessageLocationTag location={rep.location} />}
                               </div>
                               <p className="text-xs text-zinc-100 font-sans leading-relaxed">{rep.text}</p>
-                              {rep.location && <MessageLocationTag location={rep.location} />}
                               <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 pt-1.5 border-t border-white/5">
                                 <span>{rep.relayStatus || 'Direct In-App Delivery'}</span>
                                 {rep.verificationHash && (

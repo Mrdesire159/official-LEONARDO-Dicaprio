@@ -179,16 +179,19 @@ export function NotificationBasePopover({
                 }}
                 className="p-2.5 rounded-xl border border-white/10 bg-black/60 hover:border-amber-400/50 hover:bg-amber-400/5 transition-all cursor-pointer space-y-1 group"
               >
-                <div className="flex items-center justify-between gap-1 text-[10px] font-mono">
-                  <span className="text-zinc-400">{msg.timestamp}</span>
-                  {hasReplies ? (
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <Sparkles className="h-2.5 w-2.5 text-amber-400" />
-                      Reply Ready
-                    </span>
-                  ) : (
-                    <span className="text-amber-300 font-mono">Under Review</span>
-                  )}
+                <div className="flex items-start justify-between gap-2 text-[10px] font-mono">
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <span className="text-zinc-400">{msg.timestamp}</span>
+                    {hasReplies ? (
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <Sparkles className="h-2.5 w-2.5 text-amber-400" />
+                        Reply Ready
+                      </span>
+                    ) : (
+                      <span className="text-amber-300 font-mono">Under Review</span>
+                    )}
+                  </div>
+                  {msg.location && <MessageLocationTag location={msg.location} compact />}
                 </div>
 
                 <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">
@@ -200,8 +203,6 @@ export function NotificationBasePopover({
                     "{latestReply}"
                   </p>
                 )}
-
-                {msg.location && <MessageLocationTag location={msg.location} compact />}
 
                 <div className="flex items-center justify-between text-[9px] text-zinc-400 font-mono pt-1">
                   <span className="truncate max-w-[170px]">{msg.senderContact}</span>
