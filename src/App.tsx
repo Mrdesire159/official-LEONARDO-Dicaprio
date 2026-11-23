@@ -45,8 +45,15 @@ import { FloatingBackButton } from './components/FloatingBackButton';
 import { LiveChatAgent } from './components/LiveChatAgent';
 import { AdminPortalModal } from './components/AdminPortalModal';
 import { VisitorResponsePortalModal } from './components/VisitorResponsePortalModal';
+import { APIProvider } from '@vis.gl/react-google-maps';
 import { Footer } from './components/Footer';
+import { OfflineIndicator } from './components/AppDownloadButton';
+import { MessageLocationTag } from './components/MessageLocationTag';
+import { MapsConfigContext } from './context/MapsConfigContext';
+import { detectVisitorLocation, isAutoLocationEnabled } from './services/visitorLocationService';
 import { ArrowRight, ArrowLeft, Home, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe, ShieldCheck, CheckCircle2, X } from 'lucide-react';
+
+const BUILD_TIME_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 export default function App() {
   const [currentTheme, setCurrentTheme] = useState<LuxuryTheme>('gold');
@@ -67,6 +74,10 @@ export default function App() {
   // User requirement: "let the social media accouint be the first to pop up while opeing the site with a warning note saying this is one and only Leonardo DiCaprio social media and site report tany imposter to the telegram chanel"
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState<boolean>(true);
 
+  // Google Maps Platform runtime key + quota notice state
+  const [mapsApiKey, setMapsApiKey] = useState<string>(BUILD_TIME_MAPS_KEY);
+  const [mapsQuotaExceeded, setMapsQuotaExceeded] = useState(false);
+
   // Real-time automatic reply alert toast (Zero email dependency)
   const [incomingReplyAlert, setIncomingReplyAlert] = useState<{
     messageId: string;
@@ -74,6 +85,36 @@ export default function App() {
     subject?: string;
     reply: MessageReply;
   } | null>(null);
+
+  useEffect(() => {
+    const handleQuotaExceeded = () => setMapsQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+
+    // Fetch public runtime Maps API key from server if not baked into build-time Vite env
+    if (!BUILD_TIME_MAPS_KEY) {
+      fetch('/api/config/public')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { mapsApiKey?: string } | null) => {
+          if (data?.mapsApiKey && typeof data.mapsApiKey === 'string') {
+            setMapsApiKey(data.mapsApiKey);
+          }
+        })
+        .catch(() => {
+          // ignore network error
+        });
+    }
+
+    // Pre-warm visitor's real geolocation in background so outgoing messages attach instantly
+    if (isAutoLocationEnabled()) {
+      detectVisitorLocation().catch(() => {
+        // ignore background detection errors
+      });
+    }
+
+    return () => {
+      window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    };
+  }, []);
 
   useEffect(() => {
     const playChime = () => {
@@ -436,6 +477,10 @@ export default function App() {
 
   // Routing helper from internal buttons
   const handleNavigateSection = (sectionId: string) => {
+    if (sectionId === '#admin') {
+      setIsOwnerAdminOpen(true);
+      return;
+    }
     const map: Record<string, PageId> = {
       '#biography': 'biography',
       '#film-reel': 'filmography',
@@ -464,12 +509,28 @@ export default function App() {
 
   const themeConfig = THEME_CONFIGS[currentTheme];
 
-  return (
+  const appShell = (
     <div
       className={`relative min-h-screen w-full bg-[#030305] text-slate-100 ${
         reducedMotion ? 'reduced-motion' : ''
       }`}
     >
+      {mapsQuotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
       {/* Dynamic Ambient Background Layer using the User's Active Selected Photo */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-20 mix-blend-screen transition-all duration-1000 ease-in-out"
@@ -528,12 +589,14 @@ export default function App() {
         ambientAudioPlaying={ambientAudioPlaying}
         onToggleAmbientAudio={toggleAmbientAudio}
         onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenCheckout={() => setIsCheckoutOpen(true)}
         onOpenSocialBall={() => setIsSocialBallOpen(true)}
         onOpenConcierge={() => {
           window.dispatchEvent(new CustomEvent('open-live-chat'));
         }}
         onOpenAdmin={() => setIsOwnerAdminOpen(true)}
         orderCount={orders.length}
+        cartCount={cartItems.reduce((sum, ci) => sum + ci.quantity, 0)}
       />
 
       {/* PAGE ARCHITECTURE: Professional & Humanized Page-by-Page Router */}
@@ -913,6 +976,12 @@ export default function App() {
             "{incomingReplyAlert.reply.text}"
           </p>
 
+          {incomingReplyAlert.reply.location && (
+            <div className="mt-1.5">
+              <MessageLocationTag location={incomingReplyAlert.reply.location} compact />
+            </div>
+          )}
+
           <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-white/10 flex-wrap">
             <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400">
               <CheckCircle2 className="h-3 w-3" />
@@ -932,6 +1001,35 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* PWA Offline Connectivity Indicator */}
+      <OfflineIndicator />
     </div>
+  );
+
+  const mapsContextValue = {
+    mapsApiKey,
+    isConfigured: Boolean(mapsApiKey),
+  };
+
+  if (!mapsApiKey) {
+    return (
+      <MapsConfigContext.Provider value={mapsContextValue}>
+        {appShell}
+      </MapsConfigContext.Provider>
+    );
+  }
+
+  return (
+    <MapsConfigContext.Provider value={mapsContextValue}>
+      <APIProvider
+        apiKey={mapsApiKey}
+        language="en"
+        region="US"
+        libraries={['marker']}
+      >
+        {appShell}
+      </APIProvider>
+    </MapsConfigContext.Provider>
   );
 }

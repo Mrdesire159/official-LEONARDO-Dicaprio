@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { LuxuryTheme, ChanneledMessage } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES, OFFICIAL_CONTACT_EMAIL } from '../data/diCaprioData';
+import { resolveLocationForOutgoingMessage } from '../services/visitorLocationService';
+import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
 
 interface OfficialVerificationModalProps {
   isOpen: boolean;
@@ -125,9 +127,11 @@ export function OfficialVerificationModal({
     }
   };
 
-  const handleDispatchToAdminPortal = (e: React.FormEvent) => {
+  const handleDispatchToAdminPortal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !senderName.trim()) return;
+
+    const visitorLocation = await resolveLocationForOutgoingMessage();
 
     const newMsg: ChanneledMessage = {
       id: `msg-${Date.now()}`,
@@ -139,6 +143,7 @@ export function OfficialVerificationModal({
       evidenceUrl: evidenceUrl.trim() || undefined,
       timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       status: 'unread',
+      location: visitorLocation,
     };
 
     try {
@@ -372,6 +377,8 @@ export function OfficialVerificationModal({
                   />
                 </div>
 
+                <ComposerLocationStatusBar compact />
+
                 <div className="flex items-center justify-end pt-1">
                   <button
                     type="submit"
@@ -474,6 +481,8 @@ export function OfficialVerificationModal({
                             {inq.message}
                           </div>
 
+                          {inq.location && <MessageLocationTag location={inq.location} />}
+
                           {/* Official Verified Response */}
                           {(inq.replies && inq.replies.length > 0
                             ? inq.replies
@@ -502,6 +511,9 @@ export function OfficialVerificationModal({
                               <p className="text-white text-xs leading-relaxed font-sans whitespace-pre-wrap">
                                 {rep.text}
                               </p>
+                              {'location' in rep && rep.location && (
+                                <MessageLocationTag location={rep.location} />
+                              )}
                               <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400/90 pt-1">
                                 <span>✓ Real-Time Verified Response</span>
                                 <span className="text-amber-300 font-mono">

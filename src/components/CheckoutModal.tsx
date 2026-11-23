@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X,
   ShoppingBag,
@@ -75,6 +75,12 @@ export function CheckoutModal({
   const [confirmationOrderNum, setConfirmationOrderNum] = useState('');
 
   const themeConfig = THEME_CONFIGS[currentTheme];
+
+  useEffect(() => {
+    if (isOpen && cartItems.length > 0 && step === 'confirmation') {
+      setStep('cart');
+    }
+  }, [isOpen, cartItems.length, step]);
 
   if (!isOpen) return null;
 
@@ -188,13 +194,6 @@ Requesting official concierge verification approval and provision of official me
         };
 
         onOrderPlaced(newOrder);
-      }
-
-      // Direct order submission to official Telegram link for approval and means of payment provision
-      try {
-        window.open(SOCIAL_MEDIA_HANDLES.telegram.url, '_blank', 'noopener,noreferrer');
-      } catch {
-        // Fallback handled in confirmation UI
       }
 
       setStep('confirmation');

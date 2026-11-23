@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ChanneledMessage, LuxuryTheme } from '../types';
 import { THEME_CONFIGS, OFFICIAL_CONTACT_EMAIL } from '../data/diCaprioData';
+import { MessageLocationTag } from './MessageLocationTag';
 
 interface NotificationBasePopoverProps {
   isOpen: boolean;
@@ -199,6 +200,8 @@ export function NotificationBasePopover({
                     "{latestReply}"
                   </p>
                 )}
+
+                {msg.location && <MessageLocationTag location={msg.location} compact />}
 
                 <div className="flex items-center justify-between text-[9px] text-zinc-400 font-mono pt-1">
                   <span className="truncate max-w-[170px]">{msg.senderContact}</span>

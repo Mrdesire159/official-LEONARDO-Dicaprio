@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { LuxuryTheme, ChanneledMessage, MessageReply } from '../types';
 import { THEME_CONFIGS, OFFICIAL_CONTACT_EMAIL } from '../data/diCaprioData';
+import { resolveLocationForOutgoingMessage } from '../services/visitorLocationService';
+import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
 
 interface VisitorResponsePortalModalProps {
   isOpen: boolean;
@@ -160,7 +162,7 @@ export function VisitorResponsePortalModal({
   }, [messages, activeMessageId]);
 
   // Handle email registration & custom email sync
-  const handleLinkEmail = (e: React.FormEvent) => {
+  const handleLinkEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = emailSearchInput.trim();
     if (!cleanEmail) return;
@@ -186,6 +188,7 @@ export function VisitorResponsePortalModal({
       setActiveTab('my_threads');
       setSyncStatusNotice(`✓ Successfully linked ${matched.length} inquiry thread(s) associated with ${cleanEmail}!`);
     } else {
+      const visitorLocation = await resolveLocationForOutgoingMessage();
       // Register it as custom email inquiry endpoint
       const simulatedInquiry: ChanneledMessage = {
         id: `msg-custom-sync-${Date.now()}`,
@@ -196,6 +199,7 @@ export function VisitorResponsePortalModal({
         message: `Registered on-site response receiver for external dispatch sent to ${OFFICIAL_CONTACT_EMAIL}. Executive replies will stream directly to this portal.`,
         timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
         status: 'unread',
+        location: visitorLocation,
       };
 
       const updated = [simulatedInquiry, ...messages];
@@ -224,6 +228,7 @@ export function VisitorResponsePortalModal({
 
     setIsSendingFollowUp(true);
     const textToSend = followUpText.trim();
+    const visitorLocation = await resolveLocationForOutgoingMessage();
     const updatedFollowUpReply: MessageReply = {
       id: `rep-visitor-${Date.now()}`,
       sender: activeMessage.senderName || 'Patron Inquiry',
@@ -231,6 +236,7 @@ export function VisitorResponsePortalModal({
       timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       channelMethod: 'direct_in_app',
       relayStatus: 'Verified On-Site Visitor Dispatch',
+      location: visitorLocation,
     };
 
     const updated = messages.map((m) => {
@@ -275,9 +281,11 @@ export function VisitorResponsePortalModal({
   };
 
   // Submit new direct inquiry
-  const handleSendNewInquiry = (e: React.FormEvent) => {
+  const handleSendNewInquiry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSenderName.trim() || !newSenderEmail.trim() || !newMessage.trim()) return;
+
+    const visitorLocation = await resolveLocationForOutgoingMessage();
 
     const newMsg: ChanneledMessage = {
       id: `msg-direct-${Date.now()}`,
@@ -288,6 +296,7 @@ export function VisitorResponsePortalModal({
       message: newMessage.trim(),
       timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       status: 'unread',
+      location: visitorLocation,
     };
 
     const updated = [newMsg, ...messages];
@@ -506,6 +515,7 @@ export function VisitorResponsePortalModal({
 
                         <h4 className="text-xs font-bold text-white truncate mb-0.5">{msg.subject}</h4>
                         <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">{msg.message}</p>
+                        {msg.location && <MessageLocationTag location={msg.location} compact />}
 
                         <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 pt-1.5 border-t border-white/5 font-mono">
                           <span className="truncate max-w-[140px]">{msg.senderContact}</span>
@@ -545,6 +555,9 @@ export function VisitorResponsePortalModal({
                           <span>From: {activeMessage.senderName} ({activeMessage.senderContact})</span>
                         </div>
                         <p>{activeMessage.message}</p>
+                        {activeMessage.location && (
+                          <MessageLocationTag location={activeMessage.location} />
+                        )}
                         {activeMessage.evidenceUrl && (
                           <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-amber-300 font-mono">
                             Evidence Reference: <span className="underline">{activeMessage.evidenceUrl}</span>
@@ -605,6 +618,7 @@ export function VisitorResponsePortalModal({
                                 <span className="text-zinc-400">{rep.timestamp}</span>
                               </div>
                               <p className="text-xs text-zinc-100 font-sans leading-relaxed">{rep.text}</p>
+                              {rep.location && <MessageLocationTag location={rep.location} />}
                               <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 pt-1.5 border-t border-white/5">
                                 <span>{rep.relayStatus || 'Direct In-App Delivery'}</span>
                                 {rep.verificationHash && (
@@ -641,6 +655,7 @@ export function VisitorResponsePortalModal({
                         placeholder="Type your follow-up reply directly to the executive desk..."
                         className="w-full rounded-lg border border-white/15 bg-zinc-950 p-2 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
                       />
+                      <ComposerLocationStatusBar compact />
                       <div className="flex items-center justify-end">
                         <button
                           type="submit"
@@ -743,6 +758,8 @@ export function VisitorResponsePortalModal({
                     className="w-full rounded-xl border border-white/15 bg-zinc-900/90 p-3 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
                   />
                 </div>
+
+                <ComposerLocationStatusBar />
 
                 <div className="pt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">

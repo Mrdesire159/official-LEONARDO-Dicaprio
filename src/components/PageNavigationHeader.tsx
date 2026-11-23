@@ -76,6 +76,9 @@ export function PageNavigationHeader({
 
       if (isInput) return;
 
+      const hasOpenModal = Boolean(document.querySelector('[role="dialog"], .fixed.inset-0'));
+      if (hasOpenModal) return;
+
       if (e.key === 'Escape' || e.key === 'Backspace') {
         e.preventDefault();
         onGoBack();

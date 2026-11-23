@@ -1,12 +1,13 @@
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import http from 'http';
+import net from 'net';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 dotenv.config();
 
@@ -37,18 +38,28 @@ const HOST = getCliArg('--host') || process.env.HOST || '0.0.0.0';
 
 app.use(express.json());
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+function getGeminiApiKey(): string {
+  return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.API_KEY || '';
+}
 
+let cachedAiKey = '';
 let aiClient: GoogleGenAI | null = null;
-if (apiKey) {
-  aiClient = new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
+
+function getAiClient(): GoogleGenAI | null {
+  const currentKey = getGeminiApiKey();
+  if (!currentKey) return null;
+  if (!aiClient || cachedAiKey !== currentKey) {
+    cachedAiKey = currentKey;
+    aiClient = new GoogleGenAI({
+      apiKey: currentKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
       },
-    },
-  });
+    });
+  }
+  return aiClient;
 }
 
 const SYSTEM_INSTRUCTION = `You are Claire Laurent, the Senior VIP Guest Relations Host and personal concierge for Leonardo DiCaprio's Official VIP Experience in Beverly Hills and Cannes.
@@ -180,8 +191,9 @@ app.post('/api/chat', async (req: Request, res: Response) => {
     return;
   }
 
-  // If Gemini client is configured, call gemini-3.8-flash
-  if (aiClient) {
+  // Call Gemini API server-side using gemini-4-hydrogen
+  const client = getAiClient();
+  if (client) {
     try {
       // Build conversation contents
       const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
@@ -191,7 +203,7 @@ app.post('/api/chat', async (req: Request, res: Response) => {
           if (item && item.role && item.text) {
             contents.push({
               role: item.role === 'user' ? 'user' : 'model',
-              parts: [{ text: item.text }],
+              parts: [{ text: String(item.text) }],
             });
           }
         }
@@ -202,38 +214,88 @@ app.post('/api/chat', async (req: Request, res: Response) => {
         parts: [{ text: message }],
       });
 
-      const response = await Promise.race([
-        aiClient.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.7,
-            maxOutputTokens: 500,
-          },
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('AI response timeout after 4s')), 4000)
-        ),
-      ]);
+      const tryModel = async (modelName: string, level: ThinkingLevel, timeoutMs: number) => {
+        const response = await Promise.race([
+          client.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              systemInstruction: SYSTEM_INSTRUCTION,
+              thinkingConfig: { thinkingLevel: level },
+            },
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`AI response timeout after ${timeoutMs}ms`)), timeoutMs)
+          ),
+        ]);
+        return (response.text || '').trim();
+      };
 
-      const replyText = response.text || '';
-      if (replyText.trim()) {
-        res.json({ reply: replyText });
+      const tryWithRetry = async (modelName: string, level: ThinkingLevel, timeoutMs: number) => {
+        try {
+          return await tryModel(modelName, level, timeoutMs);
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status;
+          if (status === 503 || status === 429) {
+            await new Promise((r) => setTimeout(r, 800));
+            return await tryModel(modelName, level, timeoutMs);
+          }
+          throw err;
+        }
+      };
+
+      let replyText = '';
+      try {
+        replyText = await tryWithRetry('gemini-4-hydrogen', ThinkingLevel.LOW, 16000);
+      } catch (primaryErr) {
+        console.error('Primary Gemini model error, trying flash-lite:', primaryErr);
+        replyText = await tryModel('gemini-3.1-flash-lite', ThinkingLevel.MINIMAL, 14000);
+      }
+
+      if (replyText) {
+        res.json({ reply: replyText, poweredBy: 'gemini' });
         return;
       }
-    } catch (err) {
-      console.error('Gemini API call error, falling back to local engine:', err);
-      // Fallback cleanly below
+    } catch (err: unknown) {
+      const errObj = err as { status?: number; message?: string };
+      const sanitizedErr =
+        typeof errObj?.message === 'string'
+          ? errObj.message.replace(/AIza[0-9A-Za-z_-]+/g, '[REDACTED]').slice(0, 220)
+          : 'Unknown upstream error';
+      console.error('Gemini API call error, falling back to concierge desk:', errObj?.status, sanitizedErr);
     }
   }
 
   // Graceful fallback response
   const fallback = generateFallbackResponse(message);
-  res.json({ reply: fallback.reply });
+  res.json({ reply: fallback.reply, poweredBy: 'concierge-desk' });
+});
+
+// Public client configuration endpoint (exposes only browser-scoped Maps JS key, never server secrets)
+app.get('/api/config/public', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    mapsApiKey: getMapsApiKey(),
+    aiChatEnabled: Boolean(getGeminiApiKey()),
+  });
 });
 
 // Server-authoritative persistent log of dispatched replies
+interface DispatchedLocationPayload {
+  lat: number;
+  lng: number;
+  label: string;
+  formattedAddress?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  countryCode?: string;
+  accuracyMeters?: number;
+  source: 'gps' | 'network_ip' | 'google_geolocation';
+  capturedAt: string;
+  placeId?: string;
+}
+
 interface DispatchedReplyLog {
   id: string;
   messageId: string;
@@ -247,7 +309,440 @@ interface DispatchedReplyLog {
   verificationHash: string;
   telegramRelayReceipt: string;
   status: 'delivered_instant';
+  location?: DispatchedLocationPayload;
 }
+
+const GMP_SOLUTION_ID = 'gmp_mcp_codeassist_v1_aistudio';
+
+function getMapsApiKey(): string {
+  return process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
+}
+
+function isPublicIpAddress(rawIp: string): boolean {
+  const cleaned = rawIp.trim().replace(/^::ffff:/i, '');
+  const version = net.isIP(cleaned);
+  if (version === 0) return false;
+  if (version === 4) {
+    const parts = cleaned.split('.').map(Number);
+    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;
+    const [a, b] = parts;
+    if (a === 10 || a === 127 || a === 0) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    if (a >= 224) return false;
+    return true;
+  }
+  const lower = cleaned.toLowerCase();
+  if (
+    lower === '::1' ||
+    lower === '::' ||
+    lower.startsWith('fc') ||
+    lower.startsWith('fd') ||
+    lower.startsWith('fe8') ||
+    lower.startsWith('fe9') ||
+    lower.startsWith('fea') ||
+    lower.startsWith('feb')
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function extractClientPublicIp(req: Request): string | null {
+  const forwarded = req.headers['x-forwarded-for'];
+  const candidates: string[] = [];
+
+  if (typeof forwarded === 'string') {
+    candidates.push(...forwarded.split(',').map((s) => s.trim()));
+  } else if (Array.isArray(forwarded)) {
+    for (const item of forwarded) {
+      candidates.push(...item.split(',').map((s) => s.trim()));
+    }
+  }
+
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string') {
+    candidates.push(realIp.trim());
+  }
+
+  if (req.socket?.remoteAddress) {
+    candidates.push(req.socket.remoteAddress);
+  }
+
+  for (const candidate of candidates) {
+    const normalized = candidate.replace(/^::ffff:/i, '');
+    if (isPublicIpAddress(normalized)) {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+interface AddressComponentV4 {
+  longText?: string;
+  shortText?: string;
+  types?: string[];
+}
+
+interface ReverseGeocodeResult {
+  location: Omit<DispatchedLocationPayload, 'source' | 'capturedAt' | 'accuracyMeters'> | null;
+  quotaExceeded: boolean;
+}
+
+async function reverseGeocodeWithGoogle(lat: number, lng: number): Promise<ReverseGeocodeResult> {
+  const mapsKey = getMapsApiKey();
+  if (!mapsKey) {
+    return { location: null, quotaExceeded: false };
+  }
+
+  // Uses Google Maps Platform Geocoding API v4 (REST) via server proxy to avoid client CORS issues
+  // Docs: https://developers.google.com/maps/documentation/geocoding/overview?utm_campaign=gmp_mcp_codeassist_v1_aistudio
+  const url = new URL('https://geocode.googleapis.com/v4/geocode/location');
+  url.searchParams.set('location.latitude', lat.toFixed(6));
+  url.searchParams.set('location.longitude', lng.toFixed(6));
+  url.searchParams.set('languageCode', 'en');
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': mapsKey,
+        'X-Goog-FieldMask': 'results.placeId,results.formattedAddress,results.addressComponents,results.types',
+        'X-Goog-Maps-Solution-ID': GMP_SOLUTION_ID,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (resp.status === 429) {
+      return { location: null, quotaExceeded: true };
+    }
+
+    const payload = (await resp.json().catch(() => null)) as {
+      error?: { status?: string; code?: number };
+      results?: Array<{
+        placeId?: string;
+        formattedAddress?: string;
+        addressComponents?: AddressComponentV4[];
+      }>;
+    } | null;
+
+    if (
+      payload?.error?.status === 'RESOURCE_EXHAUSTED' ||
+      payload?.error?.code === 429
+    ) {
+      return { location: null, quotaExceeded: true };
+    }
+
+    if (!resp.ok || !Array.isArray(payload?.results) || payload.results.length === 0) {
+      return { location: null, quotaExceeded: false };
+    }
+
+    const primary = payload.results[0];
+    const components: AddressComponentV4[] = [];
+    for (const result of payload.results.slice(0, 3)) {
+      if (Array.isArray(result.addressComponents)) {
+        components.push(...result.addressComponents);
+      }
+    }
+
+    const pickComponent = (type: string) =>
+      components.find((c) => Array.isArray(c.types) && c.types.includes(type));
+
+    const locality =
+      pickComponent('locality')?.longText ||
+      pickComponent('postal_town')?.longText ||
+      pickComponent('sublocality_level_1')?.longText ||
+      pickComponent('administrative_area_level_2')?.longText;
+    const region =
+      pickComponent('administrative_area_level_1')?.shortText ||
+      pickComponent('administrative_area_level_1')?.longText;
+    const country = pickComponent('country')?.longText;
+    const countryCode = pickComponent('country')?.shortText;
+
+    const labelParts = [locality, region, countryCode || country].filter(Boolean);
+    const label =
+      labelParts.length > 0
+        ? labelParts.join(', ')
+        : primary.formattedAddress || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+    return {
+      location: {
+        lat,
+        lng,
+        label,
+        formattedAddress: primary.formattedAddress,
+        city: locality,
+        region,
+        country,
+        countryCode,
+        placeId: primary.placeId,
+      },
+      quotaExceeded: false,
+    };
+  } catch {
+    return { location: null, quotaExceeded: false };
+  }
+}
+
+async function geolocateViaGoogleApi(): Promise<{
+  lat: number;
+  lng: number;
+  accuracyMeters?: number;
+  quotaExceeded: boolean;
+} | null> {
+  const mapsKey = getMapsApiKey();
+  if (!mapsKey) return null;
+
+  // Uses Google Maps Platform Geolocation API (HTTPS POST)
+  // Docs: https://developers.google.com/maps/documentation/geolocation/overview?utm_campaign=gmp_mcp_codeassist_v1_aistudio
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(
+      `https://www.googleapis.com/geolocation/v1/geolocate?key=${encodeURIComponent(mapsKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Maps-Solution-ID': GMP_SOLUTION_ID,
+        },
+        body: JSON.stringify({ considerIp: true }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+
+    if (resp.status === 429) {
+      return { lat: 0, lng: 0, quotaExceeded: true };
+    }
+
+    const data = (await resp.json().catch(() => null)) as {
+      error?: { status?: string; code?: number };
+      location?: { lat: number; lng: number };
+      accuracy?: number;
+    } | null;
+
+    if (data?.error?.status === 'RESOURCE_EXHAUSTED' || data?.error?.code === 429) {
+      return { lat: 0, lng: 0, quotaExceeded: true };
+    }
+
+    if (
+      resp.ok &&
+      data?.location &&
+      typeof data.location.lat === 'number' &&
+      typeof data.location.lng === 'number' &&
+      Number.isFinite(data.location.lat) &&
+      Number.isFinite(data.location.lng)
+    ) {
+      return {
+        lat: data.location.lat,
+        lng: data.location.lng,
+        accuracyMeters: typeof data.accuracy === 'number' ? Math.round(data.accuracy) : undefined,
+        quotaExceeded: false,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function sanitizeLocationPayload(raw: unknown): DispatchedLocationPayload | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const loc = raw as Record<string, unknown>;
+  const lat = Number(loc.lat);
+  const lng = Number(loc.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return undefined;
+  }
+  const source =
+    loc.source === 'gps' || loc.source === 'network_ip' || loc.source === 'google_geolocation'
+      ? loc.source
+      : 'network_ip';
+  const trimStr = (val: unknown, maxLen: number) =>
+    typeof val === 'string' && val.trim() ? val.trim().slice(0, maxLen) : undefined;
+  const label = trimStr(loc.label, 140) || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+  return {
+    lat,
+    lng,
+    label,
+    formattedAddress: trimStr(loc.formattedAddress, 220),
+    city: trimStr(loc.city, 80),
+    region: trimStr(loc.region, 80),
+    country: trimStr(loc.country, 80),
+    countryCode: trimStr(loc.countryCode, 8),
+    accuracyMeters:
+      typeof loc.accuracyMeters === 'number' && Number.isFinite(loc.accuracyMeters) && loc.accuracyMeters >= 0
+        ? Math.round(loc.accuracyMeters)
+        : undefined,
+    source,
+    capturedAt: trimStr(loc.capturedAt, 64) || new Date().toISOString(),
+    placeId: trimStr(loc.placeId, 160),
+  };
+}
+
+// Reverse-geocode GPS coordinates into a real human-readable location via Google Maps Geocoding API v4
+app.post('/api/location/reverse', async (req: Request, res: Response) => {
+  const lat = Number(req.body?.lat);
+  const lng = Number(req.body?.lng);
+  const accuracyMeters =
+    typeof req.body?.accuracyMeters === 'number' && Number.isFinite(req.body.accuracyMeters)
+      ? Math.round(req.body.accuracyMeters)
+      : undefined;
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    res.status(400).json({ error: 'Valid numeric latitude and longitude are required' });
+    return;
+  }
+
+  const geo = await reverseGeocodeWithGoogle(lat, lng);
+  if (geo.location) {
+    res.json({
+      location: {
+        ...geo.location,
+        accuracyMeters,
+        source: 'gps',
+        capturedAt: new Date().toISOString(),
+      },
+      quotaExceeded: false,
+    });
+    return;
+  }
+
+  res.json({
+    location: {
+      lat,
+      lng,
+      label: `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? 'E' : 'W'}`,
+      accuracyMeters,
+      source: 'gps',
+      capturedAt: new Date().toISOString(),
+    },
+    quotaExceeded: geo.quotaExceeded,
+  });
+});
+
+// Automatic real visitor geolocation via validated public IP / Google Geolocation API + Google Reverse Geocoding
+app.get('/api/location/detect', async (req: Request, res: Response) => {
+  let quotaExceeded = false;
+  const capturedAt = new Date().toISOString();
+
+  // 1. Check real visitor public IP via validated public IP lookup
+  const publicIp = extractClientPublicIp(req);
+  if (publicIp) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const ipResp = await fetch(`https://ipwho.is/${encodeURIComponent(publicIp)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (ipResp.ok) {
+        const ipData = (await ipResp.json().catch(() => null)) as {
+          success?: boolean;
+          latitude?: number;
+          longitude?: number;
+          city?: string;
+          region?: string;
+          region_code?: string;
+          country?: string;
+          country_code?: string;
+        } | null;
+
+        if (
+          ipData?.success &&
+          typeof ipData.latitude === 'number' &&
+          typeof ipData.longitude === 'number' &&
+          Number.isFinite(ipData.latitude) &&
+          Number.isFinite(ipData.longitude)
+        ) {
+          // Enrich with Google Maps Geocoding API v4 when available
+          const enriched = await reverseGeocodeWithGoogle(ipData.latitude, ipData.longitude);
+          if (enriched.quotaExceeded) quotaExceeded = true;
+
+          if (enriched.location) {
+            res.json({
+              location: {
+                ...enriched.location,
+                source: 'network_ip',
+                capturedAt,
+              },
+              quotaExceeded,
+            });
+            return;
+          }
+
+          const parts = [ipData.city, ipData.region_code || ipData.region, ipData.country_code || ipData.country].filter(Boolean);
+          res.json({
+            location: {
+              lat: ipData.latitude,
+              lng: ipData.longitude,
+              label: parts.join(', ') || `${ipData.latitude.toFixed(4)}, ${ipData.longitude.toFixed(4)}`,
+              formattedAddress: [ipData.city, ipData.region, ipData.country].filter(Boolean).join(', ') || undefined,
+              city: ipData.city,
+              region: ipData.region,
+              country: ipData.country,
+              countryCode: ipData.country_code,
+              source: 'network_ip',
+              capturedAt,
+            },
+            quotaExceeded,
+          });
+          return;
+        }
+      }
+    } catch {
+      // Fall through to Google Maps Geolocation API
+    }
+  }
+
+  // 2. Fall back to Google Maps Platform Geolocation API + Geocoding API v4
+  const gGeo = await geolocateViaGoogleApi();
+  if (gGeo?.quotaExceeded) {
+    quotaExceeded = true;
+  } else if (gGeo) {
+    const rev = await reverseGeocodeWithGoogle(gGeo.lat, gGeo.lng);
+    if (rev.quotaExceeded) quotaExceeded = true;
+
+    if (rev.location) {
+      res.json({
+        location: {
+          ...rev.location,
+          accuracyMeters: gGeo.accuracyMeters,
+          source: 'google_geolocation',
+          capturedAt,
+        },
+        quotaExceeded,
+      });
+      return;
+    }
+
+    res.json({
+      location: {
+        lat: gGeo.lat,
+        lng: gGeo.lng,
+        label: `${Math.abs(gGeo.lat).toFixed(4)}° ${gGeo.lat >= 0 ? 'N' : 'S'}, ${Math.abs(gGeo.lng).toFixed(4)}° ${gGeo.lng >= 0 ? 'E' : 'W'}`,
+        accuracyMeters: gGeo.accuracyMeters,
+        source: 'google_geolocation',
+        capturedAt,
+      },
+      quotaExceeded,
+    });
+    return;
+  }
+
+  res.json({ location: null, quotaExceeded });
+});
 
 const REPLIES_FILE = path.resolve(__dirname, 'dispatched_replies.json');
 
@@ -275,7 +770,7 @@ const dispatchedRepliesLedger: DispatchedReplyLog[] = loadDispatchedReplies();
 
 // API endpoint to log and dispatch real-time replies to human recipients without needing email
 app.post('/api/replies', (req: Request, res: Response) => {
-  const { messageId, recipientName, recipientContact, subject, replyText, channelMethod, verificationHash } = req.body;
+  const { messageId, recipientName, recipientContact, subject, replyText, channelMethod, verificationHash, location } = req.body;
 
   if (!replyText || !messageId) {
     res.status(400).json({ error: 'Message ID and reply text are required' });
@@ -285,6 +780,8 @@ app.post('/api/replies', (req: Request, res: Response) => {
   const generatedHash =
     verificationHash ||
     `LDC-SIG-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+
+  const sanitizedLocation = sanitizeLocationPayload(location);
 
   const newLog: DispatchedReplyLog = {
     id: `disp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -299,13 +796,14 @@ app.post('/api/replies', (req: Request, res: Response) => {
     verificationHash: generatedHash,
     telegramRelayReceipt: `TG-EXEC-${Math.floor(100000 + Math.random() * 900000)}`,
     status: 'delivered_instant',
+    location: sanitizedLocation,
   };
 
   dispatchedRepliesLedger.unshift(newLog);
   saveDispatchedReplies(dispatchedRepliesLedger);
 
   console.log(
-    `[AUTOMATIC DIRECT REPLY DISPATCHED - NO EMAIL REQUIRED] To: ${newLog.recipientName} (${newLog.recipientContact}) | Msg: ${newLog.messageId} | Sig: ${newLog.verificationHash} | TG Relay: ${newLog.telegramRelayReceipt}`
+    `[AUTOMATIC DIRECT REPLY DISPATCHED - NO EMAIL REQUIRED] To: ${newLog.recipientName} (${newLog.recipientContact}) | Msg: ${newLog.messageId} | Sig: ${newLog.verificationHash} | TG Relay: ${newLog.telegramRelayReceipt}${sanitizedLocation ? ` | Loc: ${sanitizedLocation.label}` : ''}`
   );
 
   res.status(200).json({
@@ -391,10 +889,65 @@ async function startServer() {
     // otherwise attach it to httpServer so port 24678 is never bound separately.
     const disableHmr = process.env.DISABLE_HMR === 'true';
 
+    // When HMR is disabled in AI Studio (DISABLE_HMR=true), Vite 8 still serves /@vite/client
+    // which attempts to open a WebSocket to port 24678 and logs "WebSocket closed without opened."
+    // Serve a compatible no-WebSocket shim that preserves CSS injection and import.meta.hot APIs.
+    if (disableHmr) {
+      app.get('/@vite/client', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.send(`const sheetsMap = new Map();
+export function updateStyle(id, content) {
+  if (typeof document === "undefined") return;
+  let style = sheetsMap.get(id);
+  if (!style) {
+    style = document.createElement("style");
+    style.setAttribute("type", "text/css");
+    style.setAttribute("data-vite-dev-id", id);
+    style.textContent = content;
+    document.head.appendChild(style);
+    sheetsMap.set(id, style);
+  } else if (style.textContent !== content) {
+    style.textContent = content;
+  }
+}
+export function removeStyle(id) {
+  const style = sheetsMap.get(id);
+  if (style) {
+    style.remove();
+    sheetsMap.delete(id);
+  }
+}
+export function createHotContext(ownerPath) {
+  const data = {};
+  return {
+    data,
+    accept() {},
+    acceptExports() {},
+    dispose() {},
+    prune() {},
+    decline() {},
+    invalidate() {},
+    on() {},
+    off() {},
+    send() {},
+  };
+}
+export function injectQuery(url, queryToInject) {
+  if (url[0] !== "." && url[0] !== "/") return url;
+  const pathname = url.replace(/[?#].*$/, "");
+  const { search, hash } = new URL(url, "http://vite.dev");
+  return pathname + "?" + queryToInject + (search ? "&" + search.slice(1) : "") + (hash || "");
+}
+export class ErrorOverlay extends HTMLElement {}
+`);
+      });
+    }
+
     const vitePromise = createViteServer({
       server: {
         middlewareMode: true,
-        hmr: !disableHmr,
+        hmr: disableHmr ? false : { server: httpServer },
         ws: disableHmr ? false : { server: httpServer },
       },
       appType: 'spa',

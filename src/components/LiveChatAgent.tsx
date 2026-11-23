@@ -23,8 +23,10 @@ import {
   MessageCircle,
   HelpCircle,
 } from 'lucide-react';
-import { LuxuryTheme } from '../types';
+import { LuxuryTheme, MessageLocation } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
+import { resolveLocationForOutgoingMessage } from '../services/visitorLocationService';
+import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
 
 export interface ActionDefinition {
   id: string;
@@ -118,6 +120,7 @@ interface ChatMessage {
   timestamp: string;
   actions?: string[];
   readStatus?: 'sent' | 'delivered' | 'read';
+  location?: MessageLocation;
 }
 
 interface LiveChatAgentProps {
@@ -271,12 +274,15 @@ export function LiveChatAgent({
 
     setInputMessage('');
 
+    const visitorLocation = await resolveLocationForOutgoingMessage();
+
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
       text: query,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       readStatus: 'delivered',
+      location: visitorLocation,
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -690,6 +696,14 @@ export function LiveChatAgent({
                         <p className="whitespace-pre-line leading-relaxed">{m.text}</p>
                       </div>
 
+                      {/* Telegram-style real geolocation tag directly below sent message */}
+                      {m.location && (
+                        <MessageLocationTag
+                          location={m.location}
+                          align={isUser ? 'right' : 'left'}
+                        />
+                      )}
+
                       {/* Interactive Action Buttons attached to Agent response */}
                       {m.actions && m.actions.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-1 max-w-[90%]">
@@ -750,7 +764,8 @@ export function LiveChatAgent({
               </div>
 
               {/* Chat Input Bar */}
-              <div className="p-3 border-t border-zinc-800/80 bg-zinc-950">
+              <div className="p-3 border-t border-zinc-800/80 bg-zinc-950 space-y-2">
+                <ComposerLocationStatusBar compact />
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();

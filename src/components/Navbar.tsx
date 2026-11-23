@@ -17,11 +17,13 @@ import {
   Send,
   Shield,
   Bell,
-  Inbox
+  Inbox,
+  ShoppingBag
 } from 'lucide-react';
 import { LuxuryTheme, PageId } from '../types';
-import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
+import { THEME_CONFIGS } from '../data/diCaprioData';
 import { NotificationBasePopover } from './NotificationBasePopover';
+import { AppDownloadButton } from './AppDownloadButton';
 
 interface NavbarProps {
   currentTheme: LuxuryTheme;
@@ -32,10 +34,12 @@ interface NavbarProps {
   ambientAudioPlaying?: boolean;
   onToggleAmbientAudio?: () => void;
   onOpenProfile?: () => void;
+  onOpenCheckout?: () => void;
   onOpenSocialBall?: () => void;
   onOpenConcierge?: () => void;
   onOpenAdmin?: () => void;
   orderCount?: number;
+  cartCount?: number;
 }
 
 export function Navbar({
@@ -47,8 +51,10 @@ export function Navbar({
   ambientAudioPlaying,
   onToggleAmbientAudio,
   onOpenProfile,
+  onOpenCheckout,
   onOpenAdmin,
   orderCount = 0,
+  cartCount = 0,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isNotificationBaseOpen, setIsNotificationBaseOpen] = useState(false);
@@ -160,8 +166,6 @@ export function Navbar({
     syncUnreadReplies();
     window.addEventListener('storage', syncUnreadReplies);
     window.addEventListener('official-reply-alert', syncUnreadReplies);
-
-    window.addEventListener('owner-mode-changed', handleCustomEvent);
     window.addEventListener('hashchange', handleHash);
     window.addEventListener('new-channeled-message', handleNewChanneledMessage);
     return () => {
@@ -289,11 +293,14 @@ export function Navbar({
         </nav>
 
         {/* Action Controls - CSS selector 1: div#root > div > header > div:nth-of-type(2) > div:nth-of-type(1) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
+          {/* App Download / PWA Install Button */}
+          <AppDownloadButton variant="navbar" />
+
           {/* Prominent Verification & Imposter Warning Button */}
           <button
             onClick={onOpenVerificationModal}
-            className="flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl border border-amber-400/40 bg-amber-400/10 px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold text-amber-300 hover:bg-amber-400/20 transition-all shadow-[0_0_12px_rgba(245,158,11,0.15)] active:scale-95"
+            className="flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl border border-amber-400/40 bg-amber-400/10 px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold text-amber-300 hover:bg-amber-400/20 transition-all shadow-[0_0_12px_rgba(245,158,11,0.15)] active:scale-95 cursor-pointer"
             title="Open Official Accounts & Imposter Warning Notice"
           >
             <ShieldAlert className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400 shrink-0" />
@@ -302,6 +309,38 @@ export function Navbar({
               Notice
             </span>
           </button>
+
+          {/* VIP Cart / Checkout Quick Button */}
+          {onOpenCheckout && cartCount > 0 && (
+            <button
+              onClick={onOpenCheckout}
+              className="relative flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-amber-400/40 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 transition-all cursor-pointer active:scale-95"
+              title="Open VIP Reservation Cart"
+              aria-label="Open VIP Cart"
+            >
+              <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-mono font-black text-black ring-2 ring-black">
+                {cartCount}
+              </span>
+            </button>
+          )}
+
+          {/* VIP Pass Vault / Order History Button */}
+          {onOpenProfile && (
+            <button
+              onClick={onOpenProfile}
+              className="relative hidden sm:flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:border-amber-400/40 transition-all cursor-pointer active:scale-95"
+              title="VIP Pass Vault & Order History"
+              aria-label="Open VIP Pass Vault"
+            >
+              <User className="h-4 w-4 text-zinc-300" />
+              {orderCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 text-[9px] font-mono font-black text-black ring-2 ring-black">
+                  {orderCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Notification Base: Custom Email & Inquiries Response Bell Button */}
           <div className="relative">
@@ -396,6 +435,12 @@ export function Navbar({
               </span>
             </button>
 
+            {/* Mobile App Download Button */}
+            <AppDownloadButton
+              variant="mobile-drawer"
+              onActionComplete={() => setMobileMenuOpen(false)}
+            />
+
             {/* Mobile Response Portal Button */}
             <button
               onClick={() => {
@@ -414,6 +459,27 @@ export function Navbar({
                 </span>
               )}
             </button>
+
+            {/* Mobile VIP Pass Vault Button */}
+            {onOpenProfile && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenProfile();
+                }}
+                className="flex items-center justify-between rounded-xl border border-white/15 bg-white/5 p-2.5 sm:p-3 text-xs font-bold text-zinc-200 hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>VIP Pass Vault &amp; Orders</span>
+                </div>
+                {orderCount > 0 && (
+                  <span className="rounded-full bg-emerald-400 text-black px-2 py-0.2 text-[9px] font-mono font-black">
+                    {orderCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Mobile Navigation Pages */}
             <div className="space-y-1 pt-1">

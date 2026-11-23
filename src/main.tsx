@@ -1,8 +1,35 @@
 import {createRoot} from 'react-dom/client';
+import {registerSW} from 'virtual:pwa-register';
 import App from './App.tsx';
 import './index.css';
 
 if (typeof window !== 'undefined') {
+  // Capture PWA beforeinstallprompt early so in-app Download App buttons never miss it
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    (window as unknown as { __ldDeferredInstallPrompt?: Event }).__ldDeferredInstallPrompt = e;
+  });
+
+  // Register PWA service worker for installability & offline asset caching
+  try {
+    registerSW({ immediate: true });
+  } catch {
+    // Ignore SW registration issues in restricted environments
+  }
+
+  // Tier 1 Google Maps Platform quota & auth error listeners
+  (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+    window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+  };
+  const origConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    origConsoleError.apply(console, args);
+    const msg = args.map((a) => String(a)).join(' ');
+    if (msg.includes('OverQuotaMapError') || msg.includes('QuotaExceededError')) {
+      window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+    }
+  };
+
   const origin = window.location.origin;
   const canonicalUrl = `${origin}${window.location.pathname}`;
 

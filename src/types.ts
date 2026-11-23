@@ -151,6 +151,21 @@ export interface UserProfile {
   conciergeNotes?: string;
 }
 
+export interface MessageLocation {
+  lat: number;
+  lng: number;
+  label: string;
+  formattedAddress?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  countryCode?: string;
+  accuracyMeters?: number;
+  source: 'gps' | 'network_ip' | 'google_geolocation';
+  capturedAt: string;
+  placeId?: string;
+}
+
 export interface MessageReply {
   id: string;
   sender: string;
@@ -159,6 +174,7 @@ export interface MessageReply {
   channelMethod?: 'direct_in_app' | 'email' | 'official_desk' | 'telegram_relay' | 'secure_portal_push' | 'auto_direct_relay';
   verificationHash?: string;
   relayStatus?: string;
+  location?: MessageLocation;
 }
 
 export interface ChanneledMessage {
@@ -174,5 +190,6 @@ export interface ChanneledMessage {
   reply?: string;
   repliedAt?: string;
   replies?: MessageReply[];
+  location?: MessageLocation;
 }
 

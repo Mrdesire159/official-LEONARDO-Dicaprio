@@ -21,10 +21,12 @@ import {
   User,
   Image,
   ShieldAlert,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 import { LuxuryTheme, PhotoAsset } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
+import { AppDownloadButton } from './AppDownloadButton';
 
 interface MajorRoleItem {
   id: string;
@@ -233,6 +235,7 @@ export function HeroOrbital({
   const [isDragging, setIsDragging] = useState(false);
   const [activeRoleCategory, setActiveRoleCategory] = useState<'all' | 'oscar' | 'auteur' | 'leadership'>('all');
   const [selectedRole, setSelectedRole] = useState<MajorRoleItem>(MAJOR_ROLES[0]);
+  const [isPortraitLightboxOpen, setIsPortraitLightboxOpen] = useState(false);
   const dragStartX = useRef(0);
 
   const themeConfig = THEME_CONFIGS[currentTheme];
@@ -459,15 +462,14 @@ export function HeroOrbital({
 
             {/* Quick Inspect Button on Hover/Tap */}
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectPhotoModal(activeHeroPhoto);
-                window.dispatchEvent(
-                  new CustomEvent('open-photo-modal', { detail: activeHeroPhoto })
-                );
+                setIsPortraitLightboxOpen(true);
               }}
               title="Inspect High-Res Portrait"
-              className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
             >
               <div className="flex items-center gap-1.5 rounded-full border border-white/30 bg-black/80 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
                 <Maximize2 className="h-3.5 w-3.5 text-amber-300" />
@@ -805,8 +807,65 @@ export function HeroOrbital({
             <span>Admin Portal</span>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </button>
+
+          <AppDownloadButton variant="hero" />
         </div>
       </div>
+
+      {/* High-Res Hero Portrait Lightbox Modal */}
+      {isPortraitLightboxOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Inspect High-Res Portrait"
+          className="fixed inset-0 z-[65] flex items-center justify-center bg-black/92 p-4 sm:p-6 backdrop-blur-2xl animate-in fade-in duration-200"
+          onClick={() => setIsPortraitLightboxOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-amber-400/40 bg-zinc-950 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsPortraitLightboxOpen(false)}
+              className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white hover:bg-white/20 transition-colors cursor-pointer"
+              aria-label="Close portrait preview"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="aspect-[4/5] w-full bg-zinc-900 overflow-hidden">
+              <img
+                src={activeHeroPhoto.url}
+                alt={activeHeroPhoto.title}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = activeHeroPhoto.fallbackUrl;
+                }}
+                className="h-full w-full object-cover object-top"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 p-4 border-t border-white/10 bg-zinc-950">
+              <div className="min-w-0">
+                <h4 className="font-cinzel text-sm font-bold text-white truncate">
+                  {activeHeroPhoto.title}
+                </h4>
+                <p className="text-[11px] text-zinc-400 truncate">
+                  {activeHeroPhoto.filmOrEvent} · {activeHeroPhoto.year}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPortraitLightboxOpen(false);
+                  onNavigateSection('#gallery');
+                }}
+                className="shrink-0 rounded-xl border border-amber-400/50 bg-amber-400/15 hover:bg-amber-400/30 px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors cursor-pointer"
+              >
+                Full Gallery →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

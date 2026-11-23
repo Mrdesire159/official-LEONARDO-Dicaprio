@@ -41,6 +41,8 @@ import {
 } from 'lucide-react';
 import { Testimonial, UserProfile, OrderRecord, LuxuryTheme, ChanneledMessage, MessageReply } from '../types';
 import { THEME_CONFIGS, TESTIMONIALS as DEFAULT_TESTIMONIALS, OFFICIAL_SECURITY_EMAIL, DEFAULT_CHANNELED_MESSAGES } from '../data/diCaprioData';
+import { resolveLocationForOutgoingMessage } from '../services/visitorLocationService';
+import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
 
 interface AdminPortalModalProps {
   isOpen: boolean;
@@ -245,6 +247,7 @@ export function AdminPortalModal({
       now.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
     const authHash = `LDC-SIG-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    const senderLocation = await resolveLocationForOutgoingMessage();
 
     const newReply: MessageReply = {
       id: `reply-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -254,6 +257,7 @@ export function AdminPortalModal({
       channelMethod: 'auto_direct_relay',
       verificationHash: authHash,
       relayStatus: 'Direct Portal Push & Telegram Relay Confirmed',
+      location: senderLocation,
     };
 
     setChanneledMessages((prev) => {
@@ -346,6 +350,7 @@ export function AdminPortalModal({
           replyText: textToDispatch,
           channelMethod: 'direct_portal_and_telegram',
           verificationHash: authHash,
+          location: senderLocation,
         }),
       });
     } catch {
@@ -1088,6 +1093,7 @@ export function AdminPortalModal({
                                 <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
                                   {msg.message}
                                 </p>
+                                {msg.location && <MessageLocationTag location={msg.location} compact />}
                               </div>
 
                               <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap shrink-0">
@@ -1180,6 +1186,9 @@ export function AdminPortalModal({
                             <div className="p-3.5 rounded-xl border border-white/10 bg-black/60 text-xs text-zinc-200 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">
                               {current.message}
                             </div>
+                            {current.location && (
+                              <MessageLocationTag location={current.location} />
+                            )}
                           </div>
 
                           {/* Reply Success Feedback Toast */}
@@ -1370,6 +1379,7 @@ export function AdminPortalModal({
                                   rows={5}
                                   className="w-full rounded-xl border border-white/20 bg-black/80 p-3 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-none font-sans"
                                 />
+                                <ComposerLocationStatusBar compact />
                               </div>
 
                               {/* Dispatch actions */}
@@ -1438,6 +1448,9 @@ export function AdminPortalModal({
                                     <p className="text-zinc-200 text-xs leading-relaxed whitespace-pre-wrap font-sans">
                                       {r.text}
                                     </p>
+                                    {'location' in r && r.location && (
+                                      <MessageLocationTag location={r.location} />
+                                    )}
                                     <div className="flex flex-wrap items-center justify-between gap-1.5 text-[9px] font-mono text-emerald-400/80 pt-1.5 border-t border-emerald-500/20">
                                       <div className="flex items-center gap-2">
                                         <span>✓ Verified Delivered</span>
