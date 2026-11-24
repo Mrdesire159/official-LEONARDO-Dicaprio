@@ -9,78 +9,138 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DiCaprio VIP" />
     <meta name="google-site-verification" content="google98f0e3385119beef" />
-    <title>Leonardo DiCaprio — Official and Only Website | VIP Experience</title>
+
+    <!-- Primary Google Search Title & Meta Description -->
+    <title>Leonardo DiCaprio Official Site — VIP Experience &amp; Archive</title>
     <meta
       name="description"
-      content="Explore the official website of Leonardo DiCaprio—biography, 3D film reel timeline, awards, archival gallery, VIP Meet & Greet passes, and verified channels."
+      content="Official Leonardo DiCaprio site — explore his biography, Academy Award filmography, archival gallery, conservation work, verified channels, and VIP passes."
     />
+    <meta
+      name="keywords"
+      content="Leonardo DiCaprio site, Leonardo DiCaprio official site, Leonardo DiCaprio official website, Leonardo DiCaprio VIP experience, Leonardo DiCaprio biography, Leonardo DiCaprio filmography, Leonardo DiCaprio Oscar awards, Leonardo DiCaprio verified channels"
+    />
+    <meta name="author" content="Leonardo DiCaprio Official" />
+    <meta name="application-name" content="Leonardo DiCaprio Official Site" />
+
+    <!-- Search Engine Crawl & Rich Preview Directives -->
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta
+      name="googlebot"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+
     <!-- Standard Favicon & Apple Touch Icon pointing to /profile.png for Google Search Site Icon & Identity -->
     <link rel="icon" type="image/png" sizes="480x480" href="/profile.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
     <link rel="icon" type="image/png" href="/profile.png" />
     <link rel="shortcut icon" type="image/png" href="/profile.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="apple-touch-icon" href="/profile.png" />
+
     <!-- OpenGraph & Twitter Identity Cards -->
-    <meta property="og:title" content="Leonardo DiCaprio — Official and Only Website | VIP Experience" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Leonardo DiCaprio Official Site — VIP Experience &amp; Archive" />
     <meta
       property="og:description"
-      content="Explore the official website of Leonardo DiCaprio—biography, 3D film reel timeline, awards, archival gallery, VIP Meet & Greet passes, and verified channels."
+      content="Official Leonardo DiCaprio site — explore his biography, Academy Award filmography, archival gallery, conservation work, verified channels, and VIP passes."
     />
-    <meta property="og:type" content="website" />
     <meta property="og:url" content="/" />
-    <meta property="og:site_name" content="Leonardo DiCaprio Official" />
+    <meta property="og:site_name" content="Leonardo DiCaprio Official Site" />
     <meta property="og:logo" content="/profile.png" />
     <meta property="og:image" content="/profile.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="480" />
     <meta property="og:image:height" content="480" />
-    <meta property="og:image:alt" content="Leonardo DiCaprio — Official Site Icon & Profile Identity" />
+    <meta property="og:image:alt" content="Leonardo DiCaprio Official Site — Profile Identity &amp; Verified Icon" />
+
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Leonardo DiCaprio — Official and Only Website | VIP Experience" />
+    <meta name="twitter:site" content="@LeoDiCaprio" />
+    <meta name="twitter:creator" content="@LeoDiCaprio" />
+    <meta name="twitter:title" content="Leonardo DiCaprio Official Site — VIP Experience &amp; Archive" />
     <meta
       name="twitter:description"
-      content="Explore the official website of Leonardo DiCaprio—biography, 3D film reel timeline, awards, archival gallery, VIP Meet & Greet passes, and verified channels."
+      content="Official Leonardo DiCaprio site — explore his biography, Academy Award filmography, archival gallery, conservation work, verified channels, and VIP passes."
     />
     <meta name="twitter:image" content="/profile.png" />
-    <meta name="twitter:image:alt" content="Leonardo DiCaprio — Official Site Icon & Profile Identity" />
+    <meta name="twitter:image:alt" content="Leonardo DiCaprio Official Site — Profile Identity &amp; Verified Icon" />
+
     <!-- Google Search Engine Display, Profile Photo & Rich Thumbnail Optimization -->
     <meta name="thumbnail" content="/profile.png" />
     <link rel="image_src" href="/profile.png" />
-    <!-- Google Search Knowledge Graph, Site Identity & Rich Snippet Structured Data (JSON-LD) -->
+
+    <!-- Google Search Knowledge Graph, Site Identity, Sitelinks & FAQ Rich Results (JSON-LD) -->
     <script id="seo-structured-data" type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
         {
           "@type": "WebSite",
-          "name": "Leonardo DiCaprio Official",
-          "alternateName": "Leonardo DiCaprio — Official Website",
+          "@id": "/#website",
+          "name": "Leonardo DiCaprio Official Site",
+          "alternateName": [
+            "Leonardo DiCaprio Site",
+            "Leonardo DiCaprio Official Website",
+            "Leonardo DiCaprio — Official VIP Experience"
+          ],
           "url": "/",
-          "description": "Explore the official website of Leonardo DiCaprio—biography, 3D film reel timeline, awards, archival gallery, VIP Meet & Greet passes, and verified channels.",
+          "inLanguage": "en-US",
+          "description": "Official Leonardo DiCaprio site — explore his biography, Academy Award filmography, archival gallery, conservation work, verified channels, and VIP passes.",
+          "keywords": "Leonardo DiCaprio site, Leonardo DiCaprio official website, Leonardo DiCaprio VIP experience, filmography, awards, biography",
           "image": [
             "/profile.png",
             "/google-display-photo.webp"
           ],
           "thumbnailUrl": "/profile.png",
-          "primaryImageOfPage": "/profile.png"
+          "primaryImageOfPage": "/profile.png",
+          "publisher": {
+            "@id": "/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "/?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
         },
         {
           "@type": "Organization",
-          "name": "Leonardo DiCaprio Official",
+          "@id": "/#organization",
+          "name": "Leonardo DiCaprio Official Site",
+          "alternateName": "Leonardo DiCaprio Official",
           "url": "/",
           "logo": {
             "@type": "ImageObject",
+            "@id": "/#logo",
             "url": "/profile.png",
             "contentUrl": "/profile.png",
             "width": 480,
-            "height": 480
+            "height": 480,
+            "caption": "Leonardo DiCaprio Official Site Icon"
           },
-          "image": "/profile.png"
+          "image": "/profile.png",
+          "sameAs": [
+            "https://www.instagram.com/leonardodicaprio",
+            "https://twitter.com/LeoDiCaprio",
+            "https://www.facebook.com/LeonardoDiCaprio"
+          ]
         },
         {
           "@type": "ProfilePage",
-          "name": "Leonardo DiCaprio Official Profile",
+          "@id": "/#profilepage",
+          "name": "Leonardo DiCaprio Official Site & Profile",
           "url": "/",
+          "inLanguage": "en-US",
+          "isPartOf": {
+            "@id": "/#website"
+          },
           "primaryImageOfPage": "/profile.png",
           "image": [
             "/profile.png",
@@ -88,17 +148,104 @@
           ],
           "mainEntity": {
             "@type": "Person",
+            "@id": "/#person",
             "name": "Leonardo DiCaprio",
+            "alternateName": "Leonardo Wilhelm DiCaprio",
+            "url": "/",
             "jobTitle": "Academy Award-Winning Actor, Producer, Environmental Philanthropist",
             "image": "/profile.png",
-            "award": "Academy Award for Best Actor (The Revenant)",
-            "description": "Leonardo DiCaprio is an Academy Award-winning actor and environmental activist.",
+            "award": [
+              "Academy Award for Best Actor (The Revenant, 2016)",
+              "BAFTA Award for Best Actor in a Leading Role",
+              "Golden Globe Award for Best Actor (3x Winner)",
+              "Screen Actors Guild Award for Outstanding Performance"
+            ],
+            "knowsAbout": [
+              "Cinema",
+              "Film Production",
+              "Environmental Conservation",
+              "Climate Action",
+              "Ocean Preservation"
+            ],
+            "description": "Leonardo DiCaprio is an Academy Award-winning actor, film producer, and United Nations Messenger of Peace for climate and environmental conservation.",
             "sameAs": [
               "https://www.instagram.com/leonardodicaprio",
               "https://twitter.com/LeoDiCaprio",
               "https://www.facebook.com/LeonardoDiCaprio"
             ]
           }
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": "/#breadcrumbs",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Leonardo DiCaprio Official Site",
+              "item": "/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Biography & Conservation",
+              "item": "/#biography"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Filmography & Academy Awards",
+              "item": "/#filmography"
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
+              "name": "Archival Portrait Gallery",
+              "item": "/#gallery"
+            },
+            {
+              "@type": "ListItem",
+              "position": 5,
+              "name": "VIP Guild & Meet & Greet",
+              "item": "/#vip-guild"
+            },
+            {
+              "@type": "ListItem",
+              "position": 6,
+              "name": "Official Verification & Channels",
+              "item": "/#verification"
+            }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is featured on the Leonardo DiCaprio Official Site?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The Leonardo DiCaprio Official Site features his full biography, 25+ years of environmental leadership, interactive 35mm filmography and Academy Award honors, 360-degree archival portrait gallery, verified social channels, and official VIP Meet & Greet experiences."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How can visitors verify official Leonardo DiCaprio channels?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Visitors can check the Official Verification section on the site to confirm authentic Telegram, Instagram (@leonardodicaprio), X (@LeoDiCaprio), and Facebook channels, or report imposters directly through the site's official inquiry portal."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do VIP Guild Passes and Meet & Greet reservations work?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Guests can explore the Silver Gala, Gold VIP, and Sovereign 24K Gold VIP Pass allocations in the VIP Guild Store and complete concierge verification directly through the official Telegram desk."
+              }
+            }
+          ]
         }
       ]
     }
@@ -109,7 +256,25 @@
   </head>
   <body class="bg-black text-slate-100 antialiased selection:bg-amber-400/30 selection:text-amber-200 overflow-x-hidden">
     <div id="root"></div>
+    <noscript>
+      <main style="max-width:860px;margin:40px auto;padding:24px;color:#f5f5f5;font-family:sans-serif;line-height:1.6">
+        <h1>Leonardo DiCaprio Official Site — VIP Experience &amp; Archive</h1>
+        <p>
+          Welcome to the official Leonardo DiCaprio site. Explore Leonardo DiCaprio's complete biography,
+          Academy Award-winning filmography (Titanic, Inception, The Wolf of Wall Street, The Revenant,
+          Killers of the Flower Moon), environmental conservation work, archival gallery, verified social
+          channels, and VIP Guild Meet &amp; Greet passes.
+        </p>
+        <nav aria-label="Primary Sections">
+          <a href="#biography">Biography &amp; Earth Alliance</a> |
+          <a href="#filmography">Filmography &amp; Academy Awards</a> |
+          <a href="#gallery">Archival Portrait Gallery</a> |
+          <a href="#vip-guild">VIP Guild Passes</a> |
+          <a href="#verification">Official Verification &amp; Channels</a> |
+          <a href="#testimonials">Verified Testimonials</a>
+        </nav>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -64,7 +64,7 @@ if (typeof window !== 'undefined') {
   if (ldJsonScript?.textContent) {
     try {
       const updated = ldJsonScript.textContent
-        .replace(/"url": "\/"/g, `"url": "${origin}/"`)
+        .replace(/"(\/(?:#[^"]*|(?:\?q=\{search_term_string\})?)?)"/g, `"${origin}$1"`)
         .replace(/"\/profile\.png"/g, `"${origin}/profile.png"`)
         .replace(/"\/google-display-photo\.webp"/g, `"${origin}/google-display-photo.webp"`);
       ldJsonScript.textContent = updated;

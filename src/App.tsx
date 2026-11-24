@@ -236,6 +236,53 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Dynamically align page <title> and meta description per section for SEO clarity
+  useEffect(() => {
+    const pageMeta: Record<PageId, { title: string; description: string }> = {
+      home: {
+        title: 'Leonardo DiCaprio Official Site — VIP Experience & Archive',
+        description:
+          'Official Leonardo DiCaprio site — explore his biography, Academy Award filmography, archival gallery, conservation work, verified channels, and VIP passes.',
+      },
+      biography: {
+        title: 'Biography & Conservation | Leonardo DiCaprio Official Site',
+        description:
+          'Read Leonardo DiCaprio’s official biography, 25+ years of environmental leadership, Earth Alliance grants, and UN Messenger of Peace chronicle.',
+      },
+      filmography: {
+        title: 'Filmography & Oscar Awards | Leonardo DiCaprio Official Site',
+        description:
+          'Explore Leonardo DiCaprio’s interactive 35mm film reel timeline, Academy Award win for The Revenant, Golden Globes, BAFTA, and iconic cinema roles.',
+      },
+      'vip-guild': {
+        title: 'VIP Guild & Meet & Greet | Leonardo DiCaprio Official Site',
+        description:
+          'Reserve official Leonardo DiCaprio VIP Meet & Greet credentials, Sovereign 24K Gold passes, and gala access vetted through the official concierge desk.',
+      },
+      gallery: {
+        title: '360° Archival Portrait Gallery | Leonardo DiCaprio Official Site',
+        description:
+          'Browse curated red-carpet captures, Cannes premieres, UN addresses, and studio portraits on the official Leonardo DiCaprio site.',
+      },
+      verification: {
+        title: 'Official Channels & Verification | Leonardo DiCaprio Site',
+        description:
+          'Verify authentic Leonardo DiCaprio social media channels, report imposters directly, and access the official visitor inquiry desk.',
+      },
+      testimonials: {
+        title: 'Verified Reviews & Laurels | Leonardo DiCaprio Official Site',
+        description:
+          'Explore institutional laurels, international guest reviews, and verified VIP attendee testimonials from the official Leonardo DiCaprio experience.',
+      },
+    };
+    const meta = pageMeta[activePage] || pageMeta.home;
+    document.title = meta.title;
+    const descEl = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    if (descEl) {
+      descEl.content = meta.description;
+    }
+  }, [activePage]);
+
   // Navigation history stack for back key and page return
   const [pageHistory, setPageHistory] = useState<PageId[]>(['home']);
 

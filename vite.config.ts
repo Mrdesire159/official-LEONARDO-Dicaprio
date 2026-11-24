@@ -52,7 +52,13 @@ export default defineConfig(() => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          navigateFallbackDenylist: [/^\/api\//, /^\/health$/],
+          navigateFallbackDenylist: [
+            /^\/api\//,
+            /^\/health$/,
+            /^\/robots\.txt$/,
+            /^\/sitemap\.xml$/,
+            /^\/google[a-z0-9]+\.html$/i,
+          ],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -90,6 +96,9 @@ export default defineConfig(() => {
         },
       }),
     ],
+    build: {
+      chunkSizeWarningLimit: 1600,
+    },
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),

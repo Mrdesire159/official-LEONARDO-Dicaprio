@@ -2,7 +2,7 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import net from 'net';
-import { createServer as createViteServer } from 'vite';
+import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -824,7 +824,10 @@ app.get('/api/location/detect', async (req: Request, res: Response) => {
   res.json({ location: null, quotaExceeded });
 });
 
-const REPLIES_FILE = path.resolve(__dirname, 'dispatched_replies.json');
+const REPLIES_FILE =
+  process.env.K_SERVICE || process.env.NODE_ENV === 'production'
+    ? path.join(os.tmpdir(), 'ld_dispatched_replies.json')
+    : path.resolve(__dirname, 'dispatched_replies.json');
 
 function loadDispatchedReplies(): DispatchedReplyLog[] {
   try {
@@ -915,6 +918,103 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).send('OK');
 });
 
+function resolveSiteOrigin(req: Request): string {
+  const rawHost =
+    (typeof req.headers['x-forwarded-host'] === 'string'
+      ? req.headers['x-forwarded-host'].split(',')[0].trim()
+      : undefined) || req.get('host');
+  const safeHost =
+    rawHost && /^[a-zA-Z0-9.-]+(?::\d+)?$/.test(rawHost) ? rawHost : '';
+  const isLocalHost =
+    !safeHost ||
+    safeHost.startsWith('localhost') ||
+    safeHost.startsWith('127.0.0.1') ||
+    safeHost.startsWith('0.0.0.0');
+
+  if (!isLocalHost) {
+    const rawProto =
+      typeof req.headers['x-forwarded-proto'] === 'string'
+        ? req.headers['x-forwarded-proto'].split(',')[0].trim()
+        : req.protocol;
+    const proto = rawProto === 'http' ? 'http' : 'https';
+    return `${proto}://${safeHost}`;
+  }
+
+  const configured = process.env.APP_URL?.trim().replace(/\/+$/, '');
+  if (configured && /^https?:\/\/[a-zA-Z0-9.-]+(?::\d+)?$/.test(configured)) {
+    return configured;
+  }
+
+  return `http://${safeHost || `localhost:${PORT}`}`;
+}
+
+function hydrateHtmlSeoOrigin(html: string, origin: string): string {
+  let result = html.includes('rel="canonical"')
+    ? html.replace(/<link rel="canonical" href="\/" \/>/g, `<link rel="canonical" href="${origin}/" />`)
+    : html.replace('</head>', `    <link rel="canonical" href="${origin}/" />\n  </head>`);
+
+  result = result
+    .replace(/<meta property="og:url" content="\/" \/>/g, `<meta property="og:url" content="${origin}/" />`)
+    .replace(/<meta property="og:logo" content="\/profile\.png" \/>/g, `<meta property="og:logo" content="${origin}/profile.png" />`)
+    .replace(/<meta property="og:image" content="\/profile\.png" \/>/g, `<meta property="og:image" content="${origin}/profile.png" />`)
+    .replace(/<meta name="twitter:image" content="\/profile\.png" \/>/g, `<meta name="twitter:image" content="${origin}/profile.png" />`);
+
+  // Scope JSON-LD URL absolutization strictly inside the structured data script block
+  result = result.replace(
+    /(<script id="seo-structured-data" type="application\/ld\+json">)([\s\S]*?)(<\/script>)/,
+    (_full, openTag: string, jsonBody: string, closeTag: string) => {
+      const hydratedJson = jsonBody
+        .replace(/"(\/(?:#[^"]*|(?:\?q=\{search_term_string\})?)?)"/g, `"${origin}$1"`)
+        .replace(/"\/profile\.png"/g, `"${origin}/profile.png"`)
+        .replace(/"\/google-display-photo\.webp"/g, `"${origin}/google-display-photo.webp"`);
+      return `${openTag}${hydratedJson}${closeTag}`;
+    }
+  );
+
+  return result;
+}
+
+// Dynamic robots.txt with absolute Sitemap URL for Googlebot
+app.get('/robots.txt', (req: Request, res: Response) => {
+  const origin = resolveSiteOrigin(req);
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(
+    `User-agent: *\nAllow: /\n\nUser-agent: Googlebot\nAllow: /\n\nUser-agent: Googlebot-Image\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`
+  );
+});
+
+// Dynamic XML sitemap with Google Image Sitemap entries & absolute URLs
+app.get('/sitemap.xml', (req: Request, res: Response) => {
+  const origin = resolveSiteOrigin(req);
+  const today = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
+  <url>
+    <loc>${origin}/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>${origin}/profile.png</image:loc>
+      <image:title>Leonardo DiCaprio Official Site Profile Photo</image:title>
+      <image:caption>Leonardo DiCaprio Official Site Icon and Verified Identity Portrait</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>${origin}/google-display-photo.webp</image:loc>
+      <image:title>Leonardo DiCaprio Academy Award Official Portrait</image:title>
+      <image:caption>Leonardo DiCaprio Official Experience Display Photo</image:caption>
+    </image:image>
+  </url>
+</urlset>
+`);
+});
+
 // Setup Vite or static serving
 async function startServer() {
   const isCloudRun = Boolean(process.env.K_SERVICE || process.env.K_REVISION);
@@ -938,12 +1038,16 @@ async function startServer() {
       })
     );
 
-    // Serve other static files (images, fonts)
+    // Serve other static files (images, fonts, PWA service worker, manifest)
     app.use(
       express.static(distPath, {
         index: false,
         setHeaders: (res, filePath) => {
-          if (filePath.endsWith('.html')) {
+          if (
+            filePath.endsWith('.html') ||
+            filePath.endsWith('sw.js') ||
+            filePath.endsWith('manifest.webmanifest')
+          ) {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
@@ -952,16 +1056,15 @@ async function startServer() {
       })
     );
 
-    // SPA fallback route for all other GET requests - strictly prevent caching of index.html
-    app.get('*', (_req: Request, res: Response) => {
+    const rawIndexHtml = fs.readFileSync(indexPath, 'utf-8');
+
+    // SPA fallback route for all other GET requests - hydrate absolute SEO URLs on first byte
+    app.get('*', (req: Request, res: Response) => {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      res.sendFile(indexPath, (err) => {
-        if (err && !res.headersSent) {
-          res.status(500).send('Error loading page. Please refresh.');
-        }
-      });
+      res.send(hydrateHtmlSeoOrigin(rawIndexHtml, resolveSiteOrigin(req)));
     });
   } else {
     // Bind HTTP server immediately so port/health checks pass without waiting on Vite cold-init.
@@ -1024,17 +1127,21 @@ export class ErrorOverlay extends HTMLElement {}
       });
     }
 
-    const vitePromise = createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: disableHmr ? false : { server: httpServer },
-        ws: disableHmr ? false : { server: httpServer },
-      },
-      appType: 'spa',
-    }).catch((err) => {
-      console.error('Failed to initialize Vite dev server:', err);
-      process.exit(1);
-    });
+    const vitePromise = import('vite')
+      .then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: {
+            middlewareMode: true,
+            hmr: disableHmr ? false : { server: httpServer },
+            ws: disableHmr ? false : { server: httpServer },
+          },
+          appType: 'spa',
+        })
+      )
+      .catch((err) => {
+        console.error('Failed to initialize Vite dev server:', err);
+        process.exit(1);
+      });
 
     app.use(async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -1050,6 +1157,15 @@ export class ErrorOverlay extends HTMLElement {}
     console.error('Server failed to start:', err);
     process.exit(1);
   });
+
+  const gracefulShutdown = () => {
+    httpServer.close(() => {
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
+  };
+  process.once('SIGTERM', gracefulShutdown);
+  process.once('SIGINT', gracefulShutdown);
 
   httpServer.listen(PORT, HOST, () => {
     console.log(
