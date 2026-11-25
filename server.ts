@@ -48,10 +48,7 @@ const IS_PROD_RUNTIME =
   process.env.NODE_ENV === 'production' ||
   (Boolean(process.env.K_SERVICE || process.env.K_REVISION) && process.env.NODE_ENV !== 'development');
 
-const SESSION_SIGNING_KEY =
-  process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16
-    ? process.env.SESSION_SECRET
-    : crypto.randomBytes(32).toString('hex');
+const EPHEMERAL_SESSION_KEY = crypto.randomBytes(32).toString('hex');
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const ADMIN_HASH_FILE = path.join(os.tmpdir(), 'ld_owner_auth_hash.json');
@@ -115,6 +112,17 @@ function verifyOwnerPasscode(candidate: string): boolean {
   }
 }
 
+function getSessionSigningKey(): string {
+  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16) {
+    return process.env.SESSION_SECRET;
+  }
+  const envPass = getEnvAdminPasscode();
+  if (envPass) {
+    return crypto.createHmac('sha256', 'ld-owner-session-signing-v1').update(envPass).digest('hex');
+  }
+  return EPHEMERAL_SESSION_KEY;
+}
+
 function issueAdminSessionToken(): { token: string; expiresAt: number } {
   const now = Date.now();
   const expiresAt = now + SESSION_TTL_MS;
@@ -126,7 +134,10 @@ function issueAdminSessionToken(): { token: string; expiresAt: number } {
       jti: crypto.randomBytes(12).toString('hex'),
     })
   ).toString('base64url');
-  const sig = crypto.createHmac('sha256', SESSION_SIGNING_KEY).update(payload).digest('base64url');
+  const sig = crypto
+    .createHmac('sha256', getSessionSigningKey())
+    .update(payload)
+    .digest('base64url');
   return { token: `${payload}.${sig}`, expiresAt };
 }
 
@@ -137,7 +148,7 @@ function verifyAdminSessionToken(token: string): boolean {
   const [payload, sig] = parts;
   if (!payload || !sig) return false;
   const expectedSig = crypto
-    .createHmac('sha256', SESSION_SIGNING_KEY)
+    .createHmac('sha256', getSessionSigningKey())
     .update(payload)
     .digest('base64url');
   const sigBuf = Buffer.from(sig);

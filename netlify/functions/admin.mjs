@@ -3,13 +3,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-const SESSION_SIGNING_KEY =
-  process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16
-    ? process.env.SESSION_SECRET
-    : crypto.randomBytes(32).toString('hex');
-
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const ADMIN_HASH_FILE = path.join(os.tmpdir(), 'ld_owner_auth_hash.json');
+const EPHEMERAL_FALLBACK_KEY = crypto.randomBytes(32).toString('hex');
 
 let claimedAdminHash = null;
 try {
@@ -23,6 +19,8 @@ try {
   // ignore
 }
 
+const dispatchedReplies = [];
+
 function getEnvAdminPasscode() {
   const raw = (process.env.ADMIN_PASSCODE || '').trim();
   if (
@@ -32,6 +30,17 @@ function getEnvAdminPasscode() {
     return raw.slice(1, -1).trim();
   }
   return raw;
+}
+
+function getSessionSigningKey() {
+  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16) {
+    return process.env.SESSION_SECRET;
+  }
+  const envPass = getEnvAdminPasscode();
+  if (envPass) {
+    return crypto.createHmac('sha256', 'ld-owner-session-signing-v1').update(envPass).digest('hex');
+  }
+  return EPHEMERAL_FALLBACK_KEY;
 }
 
 function hashPasscodeScrypt(passcode, saltHex) {
@@ -71,7 +80,10 @@ function issueAdminSessionToken() {
       jti: crypto.randomBytes(12).toString('hex'),
     })
   ).toString('base64url');
-  const sig = crypto.createHmac('sha256', SESSION_SIGNING_KEY).update(payload).digest('base64url');
+  const sig = crypto
+    .createHmac('sha256', getSessionSigningKey())
+    .update(payload)
+    .digest('base64url');
   return { token: `${payload}.${sig}`, expiresAt };
 }
 
@@ -82,7 +94,7 @@ function verifyAdminSessionToken(token) {
   const [payload, sig] = parts;
   if (!payload || !sig) return false;
   const expectedSig = crypto
-    .createHmac('sha256', SESSION_SIGNING_KEY)
+    .createHmac('sha256', getSessionSigningKey())
     .update(payload)
     .digest('base64url');
   const sigBuf = Buffer.from(sig);
@@ -98,6 +110,14 @@ function verifyAdminSessionToken(token) {
   }
 }
 
+function parseJsonBody(event) {
+  if (!event.body) return {};
+  const raw = event.isBase64Encoded
+    ? Buffer.from(event.body, 'base64').toString('utf-8')
+    : event.body;
+  return JSON.parse(raw);
+}
+
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
@@ -109,10 +129,22 @@ function jsonResponse(statusCode, body) {
   };
 }
 
+function getBearerToken(headers) {
+  const authHeader = headers?.authorization || headers?.Authorization || '';
+  return typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+}
+
 export async function handler(event) {
   const method = (event.httpMethod || 'GET').toUpperCase();
-  const rawPath = event.path || '';
-  const action = rawPath.split('/').filter(Boolean).pop() || '';
+  if (method === 'OPTIONS') {
+    return { statusCode: 204, headers: { 'Cache-Control': 'no-store' }, body: '' };
+  }
+
+  const rawPath = (event.path || '').split('?')[0];
+  const segments = rawPath.split('/').filter(Boolean);
+  const action = segments[segments.length - 1] || '';
 
   if (method === 'GET' && action === 'status') {
     const envConfigured = Boolean(getEnvAdminPasscode());
@@ -124,18 +156,52 @@ export async function handler(event) {
   }
 
   if (method === 'GET' && action === 'verify') {
-    const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const token = getBearerToken(event.headers);
     if (!verifyAdminSessionToken(token)) {
       return jsonResponse(401, { error: 'Invalid or expired owner session' });
     }
     return jsonResponse(200, { authenticated: true });
   }
 
+  if (action === 'replies' || segments.includes('replies')) {
+    const token = getBearerToken(event.headers);
+    if (!verifyAdminSessionToken(token)) {
+      return jsonResponse(401, { error: 'Owner authentication required' });
+    }
+    if (method === 'GET') {
+      return jsonResponse(200, { replies: dispatchedReplies });
+    }
+    if (method === 'POST') {
+      let body = {};
+      try {
+        body = parseJsonBody(event);
+      } catch {
+        return jsonResponse(400, { error: 'Invalid JSON request payload' });
+      }
+      const messageId = typeof body?.messageId === 'string' ? body.messageId.trim() : '';
+      const replyText = typeof body?.replyText === 'string' ? body.replyText.trim() : '';
+      if (!messageId || !replyText) {
+        return jsonResponse(400, { error: 'messageId and replyText are required.' });
+      }
+      const record = {
+        id: `srv-reply-${Date.now()}`,
+        messageId,
+        replyText,
+        sentAt: new Date().toISOString(),
+        verificationHash:
+          typeof body?.verificationHash === 'string'
+            ? body.verificationHash
+            : `LDC-SIG-${Date.now().toString(36).toUpperCase()}`,
+      };
+      dispatchedReplies.unshift(record);
+      return jsonResponse(200, { success: true, reply: record });
+    }
+  }
+
   if (method === 'POST' && (action === 'setup' || action === 'login')) {
     let parsedBody = {};
     try {
-      parsedBody = event.body ? JSON.parse(event.body) : {};
+      parsedBody = parseJsonBody(event);
     } catch {
       return jsonResponse(400, { error: 'Invalid JSON request payload' });
     }

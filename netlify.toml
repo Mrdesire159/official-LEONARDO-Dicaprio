@@ -32,10 +32,23 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/admin/*"
   to = "/.netlify/functions/admin/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/replies"
+  to = "/.netlify/functions/admin/replies"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/replies/*"
+  to = "/.netlify/functions/admin/replies/:splat"
   status = 200
   force = true
 
