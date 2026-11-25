@@ -10,11 +10,39 @@ if (typeof window !== 'undefined') {
     (window as unknown as { __ldDeferredInstallPrompt?: Event }).__ldDeferredInstallPrompt = e;
   });
 
-  // Register PWA service worker for installability & offline asset caching
-  try {
-    registerSW({ immediate: true });
-  } catch {
-    // Ignore SW registration issues in restricted environments
+  // Prevent stale Service Worker caches in dev; keep PWA auto-updating in production
+  if (import.meta.env.DEV) {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) => {
+          registrations.forEach((reg) => {
+            reg.unregister().catch(() => {});
+          });
+        })
+        .catch(() => {});
+    }
+    if ('caches' in window) {
+      caches
+        .keys()
+        .then((keys) => {
+          keys
+            .filter((k) => k.includes('workbox') || k.includes('vite-pwa'))
+            .forEach((k) => caches.delete(k).catch(() => {}));
+        })
+        .catch(() => {});
+    }
+  } else {
+    try {
+      registerSW({
+        immediate: true,
+        onRegisteredSW(_swUrl, registration) {
+          registration?.update().catch(() => {});
+        },
+      });
+    } catch {
+      // Ignore SW registration issues in restricted environments
+    }
   }
 
   // Tier 1 Google Maps Platform quota & auth error listeners

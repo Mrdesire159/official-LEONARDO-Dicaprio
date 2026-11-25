@@ -8,7 +8,7 @@ const SESSION_SIGNING_KEY =
     ? process.env.SESSION_SECRET
     : crypto.randomBytes(32).toString('hex');
 
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const ADMIN_HASH_FILE = path.join(os.tmpdir(), 'ld_owner_auth_hash.json');
 
 let claimedAdminHash = null;

@@ -94,7 +94,7 @@ export function AdminPortalModal({
     let cancelled = false;
     setAuthError('');
 
-    fetch('/api/admin/status', { cache: 'no-store' })
+    fetch('/api/admin/status', { cache: 'no-store', credentials: 'same-origin' })
       .then((res) => {
         const ct = res.headers.get('content-type') || '';
         if (!res.ok || !ct.includes('application/json')) {
@@ -118,11 +118,14 @@ export function AdminPortalModal({
     };
   }, [isOpen, isAuthenticated]);
 
-  // Channeled Messages Inbox state
+  // Channeled Messages Inbox state (guarded against malformed localStorage data)
   const [channeledMessages, setChanneledMessages] = useState<ChanneledMessage[]>(() => {
     try {
       const stored = localStorage.getItem('ld_owner_channeled_messages');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // ignore
     }
@@ -380,6 +383,7 @@ export function AdminPortalModal({
       const replyResponse = await fetch('/api/replies', {
         method: 'POST',
         headers,
+        credentials: 'same-origin',
         body: JSON.stringify({
           messageId,
           recipientName: targetMsg?.senderName,
@@ -559,6 +563,7 @@ export function AdminPortalModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
+        credentials: 'same-origin',
         body: JSON.stringify({ passcode: cleanPass }),
       });
       const contentType = response.headers.get('content-type') || '';
@@ -1214,7 +1219,7 @@ export function AdminPortalModal({
                                         : 'bg-zinc-800 text-zinc-300 border-zinc-700'
                                     }`}
                                   >
-                                    {msg.category.replace('_', ' ')}
+                                    {(msg.category || 'general').replace('_', ' ')}
                                   </span>
 
                                   {(msg.reply || (msg.replies && msg.replies.length > 0)) && (
@@ -1280,7 +1285,7 @@ export function AdminPortalModal({
                           <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-3">
                             <div>
                               <span className="text-[10px] font-mono uppercase text-amber-400 block mb-0.5">
-                                Channeled Message #{current.id.slice(-6)}
+                                Channeled Message #{String(current.id || '').slice(-6)}
                               </span>
                               <h3 className="font-cinzel text-base font-bold text-white">
                                 {current.subject}
@@ -2120,10 +2125,10 @@ export function AdminPortalModal({
                               <span className="text-xs text-zinc-400">· {o.date}</span>
                             </div>
                             <p className="text-xs text-white mt-1">
-                              {o.items.map((i) => i.title).join(', ')}
+                              {(o.items || []).map((i) => i.title).join(', ')}
                             </p>
                             <p className="text-[11px] text-zinc-400">
-                              Total Amount: <span className="text-white font-mono font-bold">${o.totalAmount.toLocaleString()}</span> · Event: {o.venueEvent}
+                              Total Amount: <span className="text-white font-mono font-bold">${Number(o.totalAmount || 0).toLocaleString()}</span> · Event: {o.venueEvent}
                             </p>
                           </div>
 

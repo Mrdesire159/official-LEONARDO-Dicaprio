@@ -53,7 +53,7 @@ const SESSION_SIGNING_KEY =
     ? process.env.SESSION_SECRET
     : crypto.randomBytes(32).toString('hex');
 
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const ADMIN_HASH_FILE = path.join(os.tmpdir(), 'ld_owner_auth_hash.json');
 
 interface StoredAdminHash {
@@ -240,7 +240,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), payment=(), usb=(), geolocation=()');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 
   const isHttps =
     req.secure ||
@@ -309,39 +308,6 @@ const locationRateLimiter = createSlidingRateLimiter({
   message: 'Location lookup limit reached. Please try again shortly.',
 });
 
-// Track only consecutive failed admin passcodes so valid owner sign-in is never falsely blocked
-const adminFailedAttempts = new Map<string, { count: number; resetAt: number }>();
-const ADMIN_FAIL_WINDOW_MS = 5 * 60 * 1000;
-const ADMIN_MAX_CONSECUTIVE_FAILS = 20;
-
-function isAdminLoginTemporarilyThrottled(clientKey: string): number {
-  const rec = adminFailedAttempts.get(clientKey);
-  if (!rec) return 0;
-  const now = Date.now();
-  if (rec.resetAt <= now) {
-    adminFailedAttempts.delete(clientKey);
-    return 0;
-  }
-  if (rec.count >= ADMIN_MAX_CONSECUTIVE_FAILS) {
-    return Math.max(1, Math.ceil((rec.resetAt - now) / 1000));
-  }
-  return 0;
-}
-
-function recordAdminLoginFailure(clientKey: string): void {
-  const now = Date.now();
-  const existing = adminFailedAttempts.get(clientKey);
-  if (!existing || existing.resetAt <= now) {
-    adminFailedAttempts.set(clientKey, { count: 1, resetAt: now + ADMIN_FAIL_WINDOW_MS });
-  } else {
-    existing.count += 1;
-  }
-}
-
-function clearAdminLoginFailures(clientKey: string): void {
-  adminFailedAttempts.delete(clientKey);
-}
-
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   if (req.path.startsWith('/admin/')) {
     next();
@@ -353,7 +319,7 @@ app.use('/api/chat', chatRateLimiter);
 app.use('/api/location', locationRateLimiter);
 app.use('/api/map', locationRateLimiter);
 
-// 5. Server-side Owner Admin Portal authentication routes
+// 5. Server-side Owner Admin Portal authentication routes (no lockout on valid passcode)
 app.get('/api/admin/status', (_req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   const envConfigured = Boolean(getEnvAdminPasscode());
@@ -407,25 +373,14 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
     return;
   }
 
-  const clientKey = getRateLimitClientKey(req);
-  const retryAfterSec = isAdminLoginTemporarilyThrottled(clientKey);
-  if (retryAfterSec > 0) {
-    res.setHeader('Retry-After', String(retryAfterSec));
-    res.status(429).json({
-      error: `Too many incorrect attempts. Please wait ${retryAfterSec} seconds and try again.`,
-      retryAfterSeconds: retryAfterSec,
-    });
-    return;
-  }
-
   const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode.trim() : '';
   if (!passcode || passcode.length > 128 || !verifyOwnerPasscode(passcode)) {
-    recordAdminLoginFailure(clientKey);
-    res.status(401).json({ error: 'Incorrect Site Owner passcode.' });
+    setTimeout(() => {
+      res.status(401).json({ error: 'Incorrect Site Owner passcode.' });
+    }, 200);
     return;
   }
 
-  clearAdminLoginFailures(clientKey);
   const session = issueAdminSessionToken();
   res.json({
     success: true,
