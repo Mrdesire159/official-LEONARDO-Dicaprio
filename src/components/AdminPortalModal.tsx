@@ -71,9 +71,8 @@ export function AdminPortalModal({
   // Server-verified owner auth state (locked by default; Bearer token held strictly in memory)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
-  const [adminSetupStatus, setAdminSetupStatus] = useState<'loading' | 'unclaimed' | 'configured'>('loading');
+  const [adminSetupStatus, setAdminSetupStatus] = useState<'unclaimed' | 'configured'>('configured');
   const [enteredPasskey, setEnteredPasskey] = useState('');
-  const [confirmPasskey, setConfirmPasskey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -93,11 +92,16 @@ export function AdminPortalModal({
   React.useEffect(() => {
     if (!isOpen || isAuthenticated) return;
     let cancelled = false;
-    setAdminSetupStatus('loading');
     setAuthError('');
 
     fetch('/api/admin/status', { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Status check failed'))))
+      .then((res) => {
+        const ct = res.headers.get('content-type') || '';
+        if (!res.ok || !ct.includes('application/json')) {
+          return Promise.reject(new Error('Status check failed'));
+        }
+        return res.json();
+      })
       .then((data: { configured?: boolean }) => {
         if (!cancelled) {
           setAdminSetupStatus(data.configured ? 'configured' : 'unclaimed');
@@ -542,48 +546,68 @@ export function AdminPortalModal({
       return;
     }
 
-    if (adminSetupStatus === 'unclaimed') {
-      if (cleanPass.length < 8) {
-        setAuthError('Choose a passcode with at least 8 characters.');
-        return;
-      }
-      if (cleanPass !== confirmPasskey.trim()) {
-        setAuthError('Passcodes do not match. Please re-enter to confirm.');
-        return;
-      }
+    if (adminSetupStatus === 'unclaimed' && cleanPass.length < 8) {
+      setAuthError('Passcode must be at least 8 characters.');
+      return;
     }
 
     setIsAuthenticating(true);
     setAuthError('');
 
-    try {
-      const endpoint = adminSetupStatus === 'unclaimed' ? '/api/admin/setup' : '/api/admin/login';
-      const response = await fetch(endpoint, {
+    const postAuth = async (url: '/api/admin/login' | '/api/admin/setup') => {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ passcode: cleanPass }),
       });
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson
+        ? ((await response.json().catch(() => ({}))) as {
+            success?: boolean;
+            token?: string;
+            error?: string;
+            requiresSetup?: boolean;
+          })
+        : {};
+      return { response, isJson, data, url };
+    };
 
-      const data = (await response.json().catch(() => ({}))) as {
-        success?: boolean;
-        token?: string;
-        error?: string;
-        requiresSetup?: boolean;
-      };
+    try {
+      const primaryEndpoint: '/api/admin/login' | '/api/admin/setup' =
+        adminSetupStatus === 'unclaimed' ? '/api/admin/setup' : '/api/admin/login';
 
-      if (response.ok && data.token) {
-        setAdminToken(data.token);
+      let result = await postAuth(primaryEndpoint);
+
+      // Seamless automatic fallback if server state switched between unclaimed and configured
+      if (result.response.status === 409 && result.isJson) {
+        if (primaryEndpoint === '/api/admin/login' && result.data.requiresSetup && cleanPass.length >= 8) {
+          result = await postAuth('/api/admin/setup');
+        } else if (primaryEndpoint === '/api/admin/setup') {
+          result = await postAuth('/api/admin/login');
+        }
+      }
+
+      if (!result.isJson) {
+        setAuthError(
+          'Admin authentication server is unavailable on this host. Ensure the backend server or Netlify Functions are deployed.'
+        );
+        return;
+      }
+
+      if (result.response.ok && result.data.token) {
+        setAdminToken(result.data.token);
         setIsAuthenticated(true);
         setAdminSetupStatus('configured');
         setEnteredPasskey('');
-        setConfirmPasskey('');
         setAuthError('');
 
         const newEntry = {
           id: `log-${Date.now()}`,
           timestamp: new Date().toLocaleString(),
           status:
-            endpoint === '/api/admin/setup'
+            result.url === '/api/admin/setup'
               ? 'Owner Passcode Initialized & Verified'
               : 'Authorized Owner Session',
           recipient: OFFICIAL_SECURITY_EMAIL,
@@ -600,31 +624,25 @@ export function AdminPortalModal({
         return;
       }
 
-      if (response.status === 409 && data.requiresSetup) {
+      if (result.response.status === 409 && result.data.requiresSetup) {
         setAdminSetupStatus('unclaimed');
-        setAuthError('No owner passcode is configured yet. Create one below to claim ownership.');
+        setAuthError('Enter your owner passcode (at least 8 characters) to initialize and unlock.');
         return;
       }
 
-      if (response.status === 409 && endpoint === '/api/admin/setup') {
-        setAdminSetupStatus('configured');
-        setAuthError('Owner passcode is already configured. Please sign in below.');
-        return;
-      }
-
-      setAuthError(data.error || 'Incorrect Site Owner Passcode. Please try again.');
+      setAuthError(result.data.error || 'Incorrect Site Owner Passcode. Please try again.');
       const failedEntry = {
         id: `log-failed-${Date.now()}`,
         timestamp: new Date().toLocaleString(),
         status:
-          response.status === 429
-            ? 'Brute-Force Protection Triggered (Temporarily Locked)'
+          result.response.status === 429
+            ? 'Repeated Failed Attempts Throttled'
             : 'Failed Passcode Attempt Flagged',
         recipient: OFFICIAL_SECURITY_EMAIL,
       };
       setLoginHistory((prev) => [failedEntry, ...prev.slice(0, 9)]);
     } catch {
-      setAuthError('Unable to reach the security server. Please check your connection and try again.');
+      setAuthError('Unable to reach the authentication server. Please check your connection and try again.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -652,7 +670,6 @@ export function AdminPortalModal({
     setAdminToken(null);
     setIsAuthenticated(false);
     setEnteredPasskey('');
-    setConfirmPasskey('');
     setAuthError('');
     try {
       sessionStorage.removeItem('ld_owner_authenticated');
@@ -809,97 +826,68 @@ export function AdminPortalModal({
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-light">
               {adminSetupStatus === 'unclaimed'
-                ? 'First-time setup: enter your private owner passcode (at least 8 characters) to unlock this portal.'
+                ? 'First-time setup: enter your main Site Owner passcode to activate and unlock this portal.'
                 : 'Enter your main Site Owner passcode to unlock the Admin Portal.'}
             </p>
 
-            {adminSetupStatus === 'loading' ? (
-              <div className="mt-6 rounded-xl border border-white/10 bg-zinc-900/80 py-6 text-xs font-mono text-zinc-400">
-                Verifying security gateway status...
-              </div>
-            ) : (
-              <form onSubmit={handleAuthenticate} className="mt-6 space-y-4 text-left">
-                <div>
-                  <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
-                    {adminSetupStatus === 'unclaimed' ? 'Create Owner Passcode (Min. 8 Characters)' : 'Owner Passcode'}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="admin-passcode-field"
-                      autoComplete={adminSetupStatus === 'unclaimed' ? 'new-password' : 'current-password'}
-                      value={enteredPasskey}
-                      onChange={(e) => {
-                        setEnteredPasskey(e.target.value);
-                        setAuthError('');
-                      }}
-                      placeholder={
-                        adminSetupStatus === 'unclaimed'
-                          ? 'Create a strong private passcode...'
-                          : 'Enter owner passcode...'
-                      }
-                      className="w-full rounded-xl border border-white/20 bg-zinc-900/90 pl-4 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                      aria-label={showPassword ? 'Hide passcode' : 'Show passcode'}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {adminSetupStatus === 'unclaimed' && (
-                  <div>
-                    <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
-                      Confirm Owner Passcode
-                    </label>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="admin-passcode-confirm"
-                      autoComplete="new-password"
-                      value={confirmPasskey}
-                      onChange={(e) => {
-                        setConfirmPasskey(e.target.value);
-                        setAuthError('');
-                      }}
-                      placeholder="Re-enter owner passcode to confirm..."
-                      className="w-full rounded-xl border border-white/20 bg-zinc-900/90 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
-                    />
-                  </div>
-                )}
-
-                {authError && (
-                  <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span>{authError}</span>
-                  </p>
-                )}
-
-                <div>
+            <form onSubmit={handleAuthenticate} className="mt-6 space-y-4 text-left" autoComplete="off">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+                  Owner Passcode
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="owner-access-code"
+                    autoComplete="one-time-code"
+                    spellCheck={false}
+                    value={enteredPasskey}
+                    onChange={(e) => {
+                      setEnteredPasskey(e.target.value);
+                      setAuthError('');
+                    }}
+                    placeholder="Enter owner passcode..."
+                    className="w-full rounded-xl border border-white/20 bg-zinc-900/90 pl-4 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+                    autoFocus
+                  />
                   <button
-                    type="submit"
-                    disabled={isAuthenticating}
-                    className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 disabled:opacity-60 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                    aria-label={showPassword ? 'Hide passcode' : 'Show passcode'}
                   >
-                    {adminSetupStatus === 'unclaimed' ? (
-                      <>
-                        <KeyRound className="h-4 w-4" />
-                        <span>{isAuthenticating ? 'Securing Portal...' : 'Set Passcode & Unlock Portal'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="h-4 w-4" />
-                        <span>{isAuthenticating ? 'Verifying...' : 'Unlock Owner Portal'}</span>
-                      </>
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-              </form>
-            )}
+              </div>
+
+              {authError && (
+                <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{authError}</span>
+                </p>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={isAuthenticating}
+                  className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 disabled:opacity-60 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  {adminSetupStatus === 'unclaimed' ? (
+                    <>
+                      <KeyRound className="h-4 w-4" />
+                      <span>{isAuthenticating ? 'Unlocking Portal...' : 'Activate & Unlock Portal'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      <span>{isAuthenticating ? 'Verifying...' : 'Unlock Owner Portal'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
 
             {/* Login Notification Forwarding Security Card */}
             <div className="mt-5 rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-400/10 via-zinc-900 to-black p-4 text-left shadow-lg">

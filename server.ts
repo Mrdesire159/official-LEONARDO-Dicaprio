@@ -88,8 +88,19 @@ function constantTimeCompareStrings(a: string, b: string): boolean {
   return crypto.timingSafeEqual(hashA, hashB);
 }
 
+function getEnvAdminPasscode(): string {
+  const raw = process.env.ADMIN_PASSCODE?.trim() ?? '';
+  if (
+    raw.length >= 2 &&
+    ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'")))
+  ) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
 function verifyOwnerPasscode(candidate: string): boolean {
-  const envPass = process.env.ADMIN_PASSCODE?.trim();
+  const envPass = getEnvAdminPasscode();
   if (envPass) {
     return constantTimeCompareStrings(candidate, envPass);
   }
@@ -331,7 +342,13 @@ function clearAdminLoginFailures(clientKey: string): void {
   adminFailedAttempts.delete(clientKey);
 }
 
-app.use('/api', globalApiRateLimiter);
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (req.path.startsWith('/admin/')) {
+    next();
+    return;
+  }
+  globalApiRateLimiter(req, res, next);
+});
 app.use('/api/chat', chatRateLimiter);
 app.use('/api/location', locationRateLimiter);
 app.use('/api/map', locationRateLimiter);
@@ -339,7 +356,7 @@ app.use('/api/map', locationRateLimiter);
 // 5. Server-side Owner Admin Portal authentication routes
 app.get('/api/admin/status', (_req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
-  const envConfigured = Boolean(process.env.ADMIN_PASSCODE?.trim());
+  const envConfigured = Boolean(getEnvAdminPasscode());
   const configured = envConfigured || Boolean(claimedAdminHash);
   res.json({
     configured,
@@ -349,7 +366,7 @@ app.get('/api/admin/status', (_req: Request, res: Response) => {
 
 app.post('/api/admin/setup', (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
-  if (process.env.ADMIN_PASSCODE?.trim() || claimedAdminHash) {
+  if (getEnvAdminPasscode() || claimedAdminHash) {
     res.status(409).json({ error: 'Owner passcode is already configured.' });
     return;
   }
@@ -385,7 +402,7 @@ app.post('/api/admin/setup', (req: Request, res: Response) => {
 
 app.post('/api/admin/login', (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
-  if (!process.env.ADMIN_PASSCODE?.trim() && !claimedAdminHash) {
+  if (!getEnvAdminPasscode() && !claimedAdminHash) {
     res.status(409).json({ error: 'Owner passcode has not been set up yet.', requiresSetup: true });
     return;
   }
