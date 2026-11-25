@@ -22,6 +22,7 @@ import { LuxuryTheme, ChanneledMessage } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES, OFFICIAL_CONTACT_EMAIL } from '../data/diCaprioData';
 import { resolveLocationForOutgoingMessage } from '../services/visitorLocationService';
 import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
+import { sanitizeExternalUrl, sanitizePlainText } from '../utils/security';
 
 interface OfficialVerificationModalProps {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export function OfficialVerificationModal({
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [evidenceUrl, setEvidenceUrl] = useState('');
+  const [evidenceUrlError, setEvidenceUrlError] = useState('');
   const [dispatchSuccess, setDispatchSuccess] = useState(false);
 
   // Track visitor's own inquiries and official replies
@@ -129,18 +131,34 @@ export function OfficialVerificationModal({
 
   const handleDispatchToAdminPortal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !senderName.trim()) return;
+    const cleanName = sanitizePlainText(senderName, 120);
+    const cleanMessage = sanitizePlainText(message, 2000);
+    if (!cleanMessage || !cleanName) return;
+
+    const rawEvidenceUrl = evidenceUrl.trim();
+    let safeEvidenceUrl: string | undefined;
+    if (rawEvidenceUrl) {
+      const validated = sanitizeExternalUrl(rawEvidenceUrl);
+      if (!validated) {
+        setEvidenceUrlError('Only standard http:// or https:// links are allowed.');
+        return;
+      }
+      safeEvidenceUrl = validated;
+    }
+    setEvidenceUrlError('');
 
     const visitorLocation = await resolveLocationForOutgoingMessage();
 
     const newMsg: ChanneledMessage = {
       id: `msg-${Date.now()}`,
-      senderName: senderName.trim(),
-      senderContact: senderContact.trim() || 'Anonymous Patron',
+      senderName: cleanName,
+      senderContact: sanitizePlainText(senderContact, 140) || 'Anonymous Patron',
       category,
-      subject: subject.trim() || (category === 'imposter_report' ? 'Reported Imposter Profile' : 'Official Portal Inquiry'),
-      message: message.trim(),
-      evidenceUrl: evidenceUrl.trim() || undefined,
+      subject:
+        sanitizePlainText(subject, 160) ||
+        (category === 'imposter_report' ? 'Reported Imposter Profile' : 'Official Portal Inquiry'),
+      message: cleanMessage,
+      evidenceUrl: safeEvidenceUrl,
       timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       status: 'unread',
       location: visitorLocation,
@@ -347,10 +365,16 @@ export function OfficialVerificationModal({
                     <input
                       type="url"
                       value={evidenceUrl}
-                      onChange={(e) => setEvidenceUrl(e.target.value)}
+                      onChange={(e) => {
+                        setEvidenceUrl(e.target.value);
+                        if (evidenceUrlError) setEvidenceUrlError('');
+                      }}
                       placeholder="https://instagram.com/fake_profile..."
                       className="w-full rounded-lg border border-white/15 bg-black/70 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none font-mono"
                     />
+                    {evidenceUrlError && (
+                      <p className="mt-1 text-[10px] text-red-400">{evidenceUrlError}</p>
+                    )}
                   </div>
                 </div>
 

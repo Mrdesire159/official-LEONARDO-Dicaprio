@@ -43,6 +43,7 @@ import { Testimonial, UserProfile, OrderRecord, LuxuryTheme, ChanneledMessage, M
 import { THEME_CONFIGS, TESTIMONIALS as DEFAULT_TESTIMONIALS, OFFICIAL_SECURITY_EMAIL, DEFAULT_CHANNELED_MESSAGES } from '../data/diCaprioData';
 import { resolveLocationForOutgoingMessage } from '../services/visitorLocationService';
 import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
+import { sanitizeExternalUrl } from '../utils/security';
 
 interface AdminPortalModalProps {
   isOpen: boolean;
@@ -56,8 +57,6 @@ interface AdminPortalModalProps {
   currentTheme: LuxuryTheme;
 }
 
-const DEFAULT_OWNER_PASSKEY = '000333999';
-
 export function AdminPortalModal({
   isOpen,
   onClose,
@@ -69,20 +68,51 @@ export function AdminPortalModal({
   onUpdateOrders,
   currentTheme,
 }: AdminPortalModalProps) {
-  // Auth state - defaults to active so the site owner admin portal is immediately available, with lock option
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      const explicitLocked = localStorage.getItem('ld_owner_locked');
-      if (explicitLocked === 'true') return false;
-      return true; // Keep admin portal active by default
-    } catch {
-      return true;
-    }
-  });
+  // Server-verified owner auth state (locked by default; Bearer token held strictly in memory)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [adminToken, setAdminToken] = useState<string | null>(null);
+  const [adminSetupStatus, setAdminSetupStatus] = useState<'loading' | 'unclaimed' | 'configured'>('loading');
   const [enteredPasskey, setEnteredPasskey] = useState('');
+  const [confirmPasskey, setConfirmPasskey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'testimonials' | 'visitors' | 'settings'>('inbox');
+
+  // Clear any legacy client-side auth flags on mount and check server passcode status when opened
+  React.useEffect(() => {
+    try {
+      localStorage.removeItem('ld_owner_authenticated');
+      localStorage.removeItem('ld_owner_locked');
+      sessionStorage.removeItem('ld_owner_authenticated');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!isOpen || isAuthenticated) return;
+    let cancelled = false;
+    setAdminSetupStatus('loading');
+    setAuthError('');
+
+    fetch('/api/admin/status', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Status check failed'))))
+      .then((data: { configured?: boolean }) => {
+        if (!cancelled) {
+          setAdminSetupStatus(data.configured ? 'configured' : 'unclaimed');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAdminSetupStatus('configured');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isAuthenticated]);
 
   // Channeled Messages Inbox state
   const [channeledMessages, setChanneledMessages] = useState<ChanneledMessage[]>(() => {
@@ -337,11 +367,15 @@ export function AdminPortalModal({
       })
     );
 
-    // Server-side audit logging & direct dispatch queue (NO EMAIL REQUIRED)
+    // Server-side audit logging & direct dispatch queue (requires authenticated owner session)
     try {
-      await fetch('/api/replies', {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (adminToken) {
+        headers.Authorization = `Bearer ${adminToken}`;
+      }
+      const replyResponse = await fetch('/api/replies', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           messageId,
           recipientName: targetMsg?.senderName,
@@ -353,6 +387,11 @@ export function AdminPortalModal({
           location: senderLocation,
         }),
       });
+      if (replyResponse.status === 401) {
+        setAdminToken(null);
+        setIsAuthenticated(false);
+        setAuthError('Your owner session expired. Please unlock the Admin Portal again.');
+      }
     } catch {
       // ignore
     }
@@ -493,39 +532,101 @@ export function AdminPortalModal({
 
   if (!isOpen) return null;
 
-  const handleAuthenticate = (e?: React.FormEvent) => {
+  const handleAuthenticate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isAuthenticating) return;
+
     const cleanPass = enteredPasskey.trim();
-    if (cleanPass === DEFAULT_OWNER_PASSKEY) {
-      setIsAuthenticated(true);
-      setAuthError('');
-      const newEntry = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toLocaleString(),
-        status: 'Authorized Owner Session',
-        recipient: OFFICIAL_SECURITY_EMAIL,
-      };
-      const updated = [newEntry, ...loginHistory.slice(0, 9)];
-      setLoginHistory(updated);
-      try {
-        localStorage.removeItem('ld_owner_locked');
-        sessionStorage.setItem('ld_owner_authenticated', 'true');
-        localStorage.setItem('ld_owner_authenticated', 'true');
-        localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
-      } catch {
-        // ignore
+    if (!cleanPass) {
+      setAuthError('Please enter your Site Owner passcode.');
+      return;
+    }
+
+    if (adminSetupStatus === 'unclaimed') {
+      if (cleanPass.length < 8) {
+        setAuthError('Choose a passcode with at least 8 characters.');
+        return;
       }
-      setLoginAlertNotice(`Security Alert: Login notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
-      setTimeout(() => setLoginAlertNotice(''), 8000);
-    } else {
-      setAuthError('Incorrect Site Owner Passcode. Please enter your passcode manually.');
+      if (cleanPass !== confirmPasskey.trim()) {
+        setAuthError('Passcodes do not match. Please re-enter to confirm.');
+        return;
+      }
+    }
+
+    setIsAuthenticating(true);
+    setAuthError('');
+
+    try {
+      const endpoint = adminSetupStatus === 'unclaimed' ? '/api/admin/setup' : '/api/admin/login';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode: cleanPass }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        token?: string;
+        error?: string;
+        requiresSetup?: boolean;
+      };
+
+      if (response.ok && data.token) {
+        setAdminToken(data.token);
+        setIsAuthenticated(true);
+        setAdminSetupStatus('configured');
+        setEnteredPasskey('');
+        setConfirmPasskey('');
+        setAuthError('');
+
+        const newEntry = {
+          id: `log-${Date.now()}`,
+          timestamp: new Date().toLocaleString(),
+          status:
+            endpoint === '/api/admin/setup'
+              ? 'Owner Passcode Initialized & Verified'
+              : 'Authorized Owner Session',
+          recipient: OFFICIAL_SECURITY_EMAIL,
+        };
+        const updated = [newEntry, ...loginHistory.slice(0, 9)];
+        setLoginHistory(updated);
+        try {
+          localStorage.setItem('ld_owner_login_notifications', JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+        setLoginAlertNotice(`Security Alert: Login notification forwarded to ${OFFICIAL_SECURITY_EMAIL}`);
+        setTimeout(() => setLoginAlertNotice(''), 8000);
+        return;
+      }
+
+      if (response.status === 409 && data.requiresSetup) {
+        setAdminSetupStatus('unclaimed');
+        setAuthError('No owner passcode is configured yet. Create one below to claim ownership.');
+        return;
+      }
+
+      if (response.status === 409 && endpoint === '/api/admin/setup') {
+        setAdminSetupStatus('configured');
+        setAuthError('Owner passcode is already configured. Please sign in below.');
+        return;
+      }
+
+      setAuthError(data.error || 'Incorrect Site Owner Passcode. Please try again.');
       const failedEntry = {
         id: `log-failed-${Date.now()}`,
         timestamp: new Date().toLocaleString(),
-        status: 'Failed Passcode Attempt Flagged',
+        status:
+          response.status === 429
+            ? 'Brute-Force Protection Triggered (Temporarily Locked)'
+            : 'Failed Passcode Attempt Flagged',
         recipient: OFFICIAL_SECURITY_EMAIL,
       };
       setLoginHistory((prev) => [failedEntry, ...prev.slice(0, 9)]);
+    } catch {
+      setAuthError('Unable to reach the security server. Please check your connection and try again.');
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -548,13 +649,15 @@ export function AdminPortalModal({
   };
 
   const handleLogout = () => {
+    setAdminToken(null);
     setIsAuthenticated(false);
     setEnteredPasskey('');
+    setConfirmPasskey('');
     setAuthError('');
     try {
-      localStorage.setItem('ld_owner_locked', 'true');
       sessionStorage.removeItem('ld_owner_authenticated');
       localStorage.removeItem('ld_owner_authenticated');
+      localStorage.removeItem('ld_owner_locked');
     } catch {
       // ignore
     }
@@ -705,55 +808,98 @@ export function AdminPortalModal({
               Site Owner <span className="bg-gradient-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">Admin Portal</span>
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-light">
-              Restricted access. Only the verified site owner can manage the worldwide testimonials directory and modify visitor patron records.
+              {adminSetupStatus === 'unclaimed'
+                ? 'First-time security setup: choose a strong private owner passcode (at least 8 characters) to lock and protect this portal.'
+                : 'Restricted access. Server-verified authentication with brute-force lockout protection is active.'}
             </p>
 
-            <form onSubmit={handleAuthenticate} className="mt-6 space-y-4 text-left">
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Owner Passcode
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="admin-passcode-field"
-                    autoComplete="off"
-                    value={enteredPasskey}
-                    onChange={(e) => {
-                      setEnteredPasskey(e.target.value);
-                      setAuthError('');
-                    }}
-                    placeholder="Enter owner passcode manually..."
-                    className="w-full rounded-xl border border-white/20 bg-zinc-900/90 pl-4 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                    aria-label={showPassword ? 'Hide passcode' : 'Show passcode'}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+            {adminSetupStatus === 'loading' ? (
+              <div className="mt-6 rounded-xl border border-white/10 bg-zinc-900/80 py-6 text-xs font-mono text-zinc-400">
+                Verifying security gateway status...
+              </div>
+            ) : (
+              <form onSubmit={handleAuthenticate} className="mt-6 space-y-4 text-left">
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+                    {adminSetupStatus === 'unclaimed' ? 'Create Owner Passcode (Min. 8 Characters)' : 'Owner Passcode'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="admin-passcode-field"
+                      autoComplete={adminSetupStatus === 'unclaimed' ? 'new-password' : 'current-password'}
+                      value={enteredPasskey}
+                      onChange={(e) => {
+                        setEnteredPasskey(e.target.value);
+                        setAuthError('');
+                      }}
+                      placeholder={
+                        adminSetupStatus === 'unclaimed'
+                          ? 'Create a strong private passcode...'
+                          : 'Enter owner passcode...'
+                      }
+                      className="w-full rounded-xl border border-white/20 bg-zinc-900/90 pl-4 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                      aria-label={showPassword ? 'Hide passcode' : 'Show passcode'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
+
+                {adminSetupStatus === 'unclaimed' && (
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+                      Confirm Owner Passcode
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="admin-passcode-confirm"
+                      autoComplete="new-password"
+                      value={confirmPasskey}
+                      onChange={(e) => {
+                        setConfirmPasskey(e.target.value);
+                        setAuthError('');
+                      }}
+                      placeholder="Re-enter owner passcode to confirm..."
+                      className="w-full rounded-xl border border-white/20 bg-zinc-900/90 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                )}
+
                 {authError && (
-                  <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {authError}
+                  <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{authError}</span>
                   </p>
                 )}
-              </div>
 
-              <div>
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                >
-                  <Unlock className="h-4 w-4" />
-                  <span>Unlock Owner Portal</span>
-                </button>
-              </div>
-            </form>
+                <div>
+                  <button
+                    type="submit"
+                    disabled={isAuthenticating}
+                    className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-amber-600 py-3.5 text-xs font-bold uppercase tracking-wider text-black shadow-xl hover:from-amber-300 hover:to-amber-500 disabled:opacity-60 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    {adminSetupStatus === 'unclaimed' ? (
+                      <>
+                        <KeyRound className="h-4 w-4" />
+                        <span>{isAuthenticating ? 'Securing Portal...' : 'Set Passcode & Unlock Portal'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="h-4 w-4" />
+                        <span>{isAuthenticating ? 'Verifying...' : 'Unlock Owner Portal'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
 
             {/* Login Notification Forwarding Security Card */}
             <div className="mt-5 rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-400/10 via-zinc-900 to-black p-4 text-left shadow-lg">
@@ -1169,22 +1315,37 @@ export function AdminPortalModal({
                             </div>
                           </div>
 
-                          {current.evidenceUrl && (
-                            <div className="p-2.5 rounded-xl border border-red-500/30 bg-red-950/20 text-xs">
-                              <span className="text-[9px] font-mono uppercase text-red-300 block mb-1">
-                                Flagged Suspect Link / Evidence
-                              </span>
-                              <a
-                                href={current.evidenceUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-red-200 underline flex items-center gap-1.5 break-all text-[11px]"
-                              >
-                                <span>{current.evidenceUrl}</span>
-                                <ExternalLink className="h-3 w-3 shrink-0" />
-                              </a>
-                            </div>
-                          )}
+                          {current.evidenceUrl && (() => {
+                            const safeEvidenceUrl = sanitizeExternalUrl(current.evidenceUrl);
+                            return (
+                              <div className="p-2.5 rounded-xl border border-red-500/30 bg-red-950/20 text-xs">
+                                <span className="text-[9px] font-mono uppercase text-red-300 block mb-1">
+                                  Flagged Suspect Link / Evidence
+                                </span>
+                                {safeEvidenceUrl ? (
+                                  <a
+                                    href={safeEvidenceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono text-red-200 underline flex items-center gap-1.5 break-all text-[11px]"
+                                  >
+                                    <span>{safeEvidenceUrl}</span>
+                                    <ExternalLink className="h-3 w-3 shrink-0" />
+                                  </a>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <span className="inline-flex items-center gap-1 rounded bg-red-500/20 border border-red-500/40 px-2 py-0.5 text-[10px] font-mono text-red-200">
+                                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                                      Blocked unsafe link scheme
+                                    </span>
+                                    <p className="font-mono text-zinc-400 break-all text-[11px]">
+                                      {current.evidenceUrl}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           <div className="rounded-xl border border-white/10 bg-black/60 p-3.5 space-y-2">
                             <div className="flex items-start justify-between gap-2 pb-2 border-b border-white/10">

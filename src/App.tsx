@@ -49,6 +49,7 @@ import { APIProvider } from '@vis.gl/react-google-maps';
 import { Footer } from './components/Footer';
 import { OfflineIndicator } from './components/AppDownloadButton';
 import { MessageLocationTag } from './components/MessageLocationTag';
+import { GlobalSanctuaryMap } from './components/GlobalSanctuaryMap';
 import { MapsConfigContext } from './context/MapsConfigContext';
 import { detectVisitorLocation, isAutoLocationEnabled } from './services/visitorLocationService';
 import { ArrowRight, ArrowLeft, Home, Compass, ShieldAlert, Film, User, CreditCard, Image, Globe, ShieldCheck, CheckCircle2, X } from 'lucide-react';
@@ -667,6 +668,9 @@ export default function App() {
               onSelectPhotoModal={(photo) => setActiveBgPhoto(photo)}
               onNavigateSection={handleNavigateSection}
             />
+
+            {/* Full Interactive Google Map — Global VIP Venues, Visitor Live Position & Search */}
+            <GlobalSanctuaryMap currentTheme={currentTheme} />
           </div>
         )}
 
@@ -747,6 +751,8 @@ export default function App() {
               onAddToCart={handleAddToCart}
               onInstantBuy={handleInstantBuy}
             />
+
+            <GlobalSanctuaryMap currentTheme={currentTheme} />
 
             {/* Bottom Next-Chapter Navigator with Back and Mainpage Buttons */}
             <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 mt-8">
@@ -1075,7 +1081,7 @@ export default function App() {
         apiKey={mapsApiKey}
         language="en"
         region="US"
-        libraries={['marker']}
+        libraries={['marker', 'places']}
       >
         {appShell}
       </APIProvider>

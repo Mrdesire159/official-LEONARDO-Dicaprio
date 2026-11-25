@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import http from 'http';
 import net from 'net';
 import os from 'os';
@@ -28,6 +29,9 @@ function getCliArg(flag: string): string | undefined {
 }
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
 const cliPort = getCliArg('--port') ?? getCliArg('-p');
 const PORT = cliPort
   ? parseInt(cliPort, 10)
@@ -36,7 +40,374 @@ const PORT = cliPort
   : 3000;
 const HOST = getCliArg('--host') || process.env.HOST || '0.0.0.0';
 
-app.use(express.json());
+// ============================================================================
+// SECURITY LAYER: Headers, Intrusion/Probe Blocker, Rate Limiting & Auth
+// ============================================================================
+
+const IS_PROD_RUNTIME =
+  process.env.NODE_ENV === 'production' ||
+  (Boolean(process.env.K_SERVICE || process.env.K_REVISION) && process.env.NODE_ENV !== 'development');
+
+const SESSION_SIGNING_KEY =
+  process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16
+    ? process.env.SESSION_SECRET
+    : crypto.randomBytes(32).toString('hex');
+
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const ADMIN_HASH_FILE = path.join(os.tmpdir(), 'ld_owner_auth_hash.json');
+
+interface StoredAdminHash {
+  salt: string;
+  hash: string;
+  claimedAt: string;
+}
+
+function loadClaimedAdminHash(): StoredAdminHash | null {
+  try {
+    if (fs.existsSync(ADMIN_HASH_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(ADMIN_HASH_FILE, 'utf-8')) as StoredAdminHash;
+      if (parsed && typeof parsed.salt === 'string' && typeof parsed.hash === 'string') {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore malformed or unreadable temp store
+  }
+  return null;
+}
+
+let claimedAdminHash: StoredAdminHash | null = loadClaimedAdminHash();
+
+function hashPasscodeScrypt(passcode: string, saltHex: string): Buffer {
+  return crypto.scryptSync(passcode, saltHex, 64, { N: 16384, r: 8, p: 1 });
+}
+
+function constantTimeCompareStrings(a: string, b: string): boolean {
+  const hashA = crypto.createHash('sha256').update(a).digest();
+  const hashB = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
+
+function verifyOwnerPasscode(candidate: string): boolean {
+  const envPass = process.env.ADMIN_PASSCODE?.trim();
+  if (envPass) {
+    return constantTimeCompareStrings(candidate, envPass);
+  }
+  if (!claimedAdminHash) return false;
+  try {
+    const derived = hashPasscodeScrypt(candidate, claimedAdminHash.salt);
+    const stored = Buffer.from(claimedAdminHash.hash, 'hex');
+    if (derived.length !== stored.length) return false;
+    return crypto.timingSafeEqual(derived, stored);
+  } catch {
+    return false;
+  }
+}
+
+function issueAdminSessionToken(): { token: string; expiresAt: number } {
+  const now = Date.now();
+  const expiresAt = now + SESSION_TTL_MS;
+  const payload = Buffer.from(
+    JSON.stringify({
+      role: 'owner',
+      iat: now,
+      exp: expiresAt,
+      jti: crypto.randomBytes(12).toString('hex'),
+    })
+  ).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SIGNING_KEY).update(payload).digest('base64url');
+  return { token: `${payload}.${sig}`, expiresAt };
+}
+
+function verifyAdminSessionToken(token: string): boolean {
+  if (!token || typeof token !== 'string' || token.length > 512) return false;
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+  const [payload, sig] = parts;
+  if (!payload || !sig) return false;
+  const expectedSig = crypto
+    .createHmac('sha256', SESSION_SIGNING_KEY)
+    .update(payload)
+    .digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return false;
+  }
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8')) as {
+      role?: string;
+      exp?: number;
+    };
+    return decoded.role === 'owner' && typeof decoded.exp === 'number' && decoded.exp > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function requireAdminAuth(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Owner authentication required' });
+    return;
+  }
+  const token = authHeader.slice(7).trim();
+  if (!verifyAdminSessionToken(token)) {
+    res.status(401).json({ error: 'Invalid or expired owner session' });
+    return;
+  }
+  next();
+}
+
+function getRateLimitClientKey(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  const firstForwarded =
+    typeof forwarded === 'string'
+      ? forwarded.split(',')[0].trim()
+      : Array.isArray(forwarded) && forwarded[0]
+      ? forwarded[0].split(',')[0].trim()
+      : '';
+  const candidate =
+    (typeof req.headers['cf-connecting-ip'] === 'string' && req.headers['cf-connecting-ip'].trim()) ||
+    (typeof req.headers['x-nf-client-connection-ip'] === 'string' && req.headers['x-nf-client-connection-ip'].trim()) ||
+    firstForwarded ||
+    req.socket?.remoteAddress ||
+    'unknown';
+  return candidate.replace(/^::ffff:/i, '').slice(0, 64);
+}
+
+interface RateBucket {
+  count: number;
+  resetAt: number;
+}
+
+function createSlidingRateLimiter(options: {
+  windowMs: number;
+  maxRequests: number;
+  message: string;
+}) {
+  const buckets = new Map<string, RateBucket>();
+  const maxEntries = 5000;
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const now = Date.now();
+    const key = getRateLimitClientKey(req);
+    const existing = buckets.get(key);
+
+    if (!existing || existing.resetAt <= now) {
+      if (buckets.size >= maxEntries) {
+        for (const [k, v] of buckets) {
+          if (v.resetAt <= now) buckets.delete(k);
+        }
+        if (buckets.size >= maxEntries) {
+          const oldestKey = buckets.keys().next().value;
+          if (oldestKey) buckets.delete(oldestKey);
+        }
+      }
+      buckets.set(key, { count: 1, resetAt: now + options.windowMs });
+      next();
+      return;
+    }
+
+    if (existing.count >= options.maxRequests) {
+      const retryAfterSec = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+      res.setHeader('Retry-After', String(retryAfterSec));
+      res.status(429).json({
+        error: options.message,
+        retryAfterSeconds: retryAfterSec,
+      });
+      return;
+    }
+
+    existing.count += 1;
+    next();
+  };
+}
+
+// 1. Defensive HTTP security headers on every response (iframe-compatible)
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), payment=(), usb=(), geolocation=()');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+
+  const isHttps =
+    req.secure ||
+    req.headers['x-forwarded-proto'] === 'https' ||
+    IS_PROD_RUNTIME;
+  if (isHttps) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
+  if (IS_PROD_RUNTIME) {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.googleapis.com; font-src 'self' https://fonts.gstatic.com https://*.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://ipwho.is https://fonts.googleapis.com https://fonts.gstatic.com data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'"
+    );
+  }
+  next();
+});
+
+// 2. Automated exploit, path traversal, and scanner probe blocker
+const BLOCKED_PROBE_PATTERN =
+  /(?:^|\/)(?:\.env(?:\.[^/]*)?|\.git(?:\/|$)|\.htaccess|\.htpasswd|wp-admin|wp-login\.php|wp-content|xmlrpc\.php|phpmyadmin|phpinfo|cgi-bin|server-status|actuator(?:\/|$)|vendor\/phpunit)|(?:\.\.|%2e%2e|%00|\0)/i;
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const rawUrl = req.originalUrl || req.url || '';
+  let decodedUrl = rawUrl;
+  try {
+    decodedUrl = decodeURIComponent(rawUrl);
+  } catch {
+    res.status(400).json({ error: 'Malformed request path' });
+    return;
+  }
+
+  if (BLOCKED_PROBE_PATTERN.test(rawUrl) || BLOCKED_PROBE_PATTERN.test(decodedUrl)) {
+    res.status(403).type('text/plain').send('Forbidden');
+    return;
+  }
+  next();
+});
+
+// 3. Strict JSON body limit (blocks large payload DoS)
+app.use(express.json({ limit: '32kb' }));
+
+// Return clean 400 on malformed JSON payloads instead of stack traces
+app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof SyntaxError && 'status' in err && (err as { status?: number }).status === 400) {
+    res.status(400).json({ error: 'Invalid JSON request payload' });
+    return;
+  }
+  next(err);
+});
+
+// 4. Same-origin verification on mutating API routes (blocks cross-site request forgery)
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    next();
+    return;
+  }
+  const originHeader = req.headers.origin;
+  if (typeof originHeader === 'string' && originHeader.trim()) {
+    try {
+      const originHost = new URL(originHeader).host.toLowerCase();
+      const rawHost =
+        (typeof req.headers['x-forwarded-host'] === 'string'
+          ? req.headers['x-forwarded-host'].split(',')[0].trim()
+          : '') ||
+        req.get('host') ||
+        '';
+      if (rawHost && originHost !== rawHost.toLowerCase()) {
+        res.status(403).json({ error: 'Cross-origin request blocked' });
+        return;
+      }
+    } catch {
+      res.status(403).json({ error: 'Invalid request origin' });
+      return;
+    }
+  }
+  next();
+});
+
+// 5. Tiered rate limiters across API endpoints
+const globalApiRateLimiter = createSlidingRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 120,
+  message: 'Too many requests. Please slow down and try again shortly.',
+});
+const chatRateLimiter = createSlidingRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 20,
+  message: 'Chat rate limit reached. Please wait a moment before sending another message.',
+});
+const locationRateLimiter = createSlidingRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  message: 'Location lookup limit reached. Please try again shortly.',
+});
+const adminAuthRateLimiter = createSlidingRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 5,
+  message: 'Too many authentication attempts. Access temporarily locked for 15 minutes.',
+});
+
+app.use('/api', globalApiRateLimiter);
+app.use('/api/chat', chatRateLimiter);
+app.use('/api/location', locationRateLimiter);
+app.use('/api/map', locationRateLimiter);
+
+// 6. Server-side Owner Admin Portal authentication routes
+app.get('/api/admin/status', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const envConfigured = Boolean(process.env.ADMIN_PASSCODE?.trim());
+  const configured = envConfigured || Boolean(claimedAdminHash);
+  res.json({
+    configured,
+    source: envConfigured ? 'env' : claimedAdminHash ? 'claimed' : 'unclaimed',
+  });
+});
+
+app.post('/api/admin/setup', adminAuthRateLimiter, (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (process.env.ADMIN_PASSCODE?.trim() || claimedAdminHash) {
+    res.status(409).json({ error: 'Owner passcode is already configured.' });
+    return;
+  }
+
+  const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode.trim() : '';
+  if (passcode.length < 8 || passcode.length > 128) {
+    res.status(400).json({ error: 'Owner passcode must be between 8 and 128 characters.' });
+    return;
+  }
+
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = hashPasscodeScrypt(passcode, salt).toString('hex');
+  const record: StoredAdminHash = {
+    salt,
+    hash,
+    claimedAt: new Date().toISOString(),
+  };
+
+  claimedAdminHash = record;
+  try {
+    fs.writeFileSync(ADMIN_HASH_FILE, JSON.stringify(record), { encoding: 'utf-8', mode: 0o600 });
+  } catch {
+    // Keep hash active in memory even if temp disk write is unavailable
+  }
+
+  const session = issueAdminSessionToken();
+  res.status(201).json({
+    success: true,
+    token: session.token,
+    expiresAt: session.expiresAt,
+  });
+});
+
+app.post('/api/admin/login', adminAuthRateLimiter, (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!process.env.ADMIN_PASSCODE?.trim() && !claimedAdminHash) {
+    res.status(409).json({ error: 'Owner passcode has not been set up yet.', requiresSetup: true });
+    return;
+  }
+
+  const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode.trim() : '';
+  if (!passcode || passcode.length > 128 || !verifyOwnerPasscode(passcode)) {
+    res.status(401).json({ error: 'Incorrect Site Owner passcode.' });
+    return;
+  }
+
+  const session = issueAdminSessionToken();
+  res.json({
+    success: true,
+    token: session.token,
+    expiresAt: session.expiresAt,
+  });
+});
+
+app.get('/api/admin/verify', requireAdminAuth, (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ authenticated: true });
+});
 
 function getGeminiApiKey(): string {
   return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.API_KEY || '';
@@ -184,10 +555,16 @@ function generateFallbackResponse(query: string): { reply: string; suggestedActi
 
 // API endpoint for chatbot
 app.post('/api/chat', async (req: Request, res: Response) => {
-  const { message, history } = req.body;
+  const { message, history } = req.body ?? {};
 
   if (!message || typeof message !== 'string') {
     res.status(400).json({ error: 'Message is required' });
+    return;
+  }
+
+  const cleanMessage = message.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, 1500);
+  if (!cleanMessage) {
+    res.status(400).json({ error: 'Message cannot be empty' });
     return;
   }
 
@@ -195,23 +572,26 @@ app.post('/api/chat', async (req: Request, res: Response) => {
   const client = getAiClient();
   if (client) {
     try {
-      // Build conversation contents
+      // Build conversation contents with strict size bounds
       const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
       if (Array.isArray(history)) {
         for (const item of history.slice(-6)) {
-          if (item && item.role && item.text) {
-            contents.push({
-              role: item.role === 'user' ? 'user' : 'model',
-              parts: [{ text: String(item.text) }],
-            });
+          if (item && typeof item.role === 'string' && typeof item.text === 'string') {
+            const safeText = item.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, 1000);
+            if (safeText) {
+              contents.push({
+                role: item.role === 'user' ? 'user' : 'model',
+                parts: [{ text: safeText }],
+              });
+            }
           }
         }
       }
 
       contents.push({
         role: 'user',
-        parts: [{ text: message }],
+        parts: [{ text: cleanMessage }],
       });
 
       const tryModel = async (modelName: string, level: ThinkingLevel, timeoutMs: number) => {
@@ -824,6 +1204,362 @@ app.get('/api/location/detect', async (req: Request, res: Response) => {
   res.json({ location: null, quotaExceeded });
 });
 
+// ============================================================================
+// GOOGLE MAPS PLATFORM PLACES API (NEW) PROXY: Official Venues & Live Search
+// Docs: https://developers.google.com/maps/documentation/places/web-service/text-search?utm_campaign=gmp_mcp_codeassist_v1_aistudio
+// ============================================================================
+
+interface OfficialMapPlace {
+  id: string;
+  placeId: string;
+  title: string;
+  subtitle: string;
+  category: 'vip_hub' | 'cinema_premiere' | 'climate_summit' | 'search_result';
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  googleMapsUri?: string;
+  primaryType?: string;
+}
+
+interface CuratedVenueQuery {
+  id: string;
+  textQuery: string;
+  subtitle: string;
+  category: 'vip_hub' | 'cinema_premiere' | 'climate_summit';
+}
+
+const OFFICIAL_VENUE_QUERIES: CuratedVenueQuery[] = [
+  {
+    id: 'beverly-hills-desk',
+    textQuery: 'The Beverly Hills Hotel Sunset Boulevard Beverly Hills CA',
+    subtitle: 'VIP Concierge Sanctuary & Private Patron Desk',
+    category: 'vip_hub',
+  },
+  {
+    id: 'dolby-theatre',
+    textQuery: 'Dolby Theatre Hollywood Boulevard Los Angeles CA',
+    subtitle: 'Academy Awards Ceremony & Red Carpet Premiere',
+    category: 'cinema_premiere',
+  },
+  {
+    id: 'cannes-palais',
+    textQuery: 'Palais des Festivals et des Congres Cannes France',
+    subtitle: 'Cannes Film Festival & Riviera Gala Showcase',
+    category: 'cinema_premiere',
+  },
+  {
+    id: 'un-headquarters',
+    textQuery: 'United Nations Headquarters New York NY',
+    subtitle: 'UN Messenger of Peace & Global Climate Address',
+    category: 'climate_summit',
+  },
+  {
+    id: 'venice-lido',
+    textQuery: 'Palazzo del Cinema di Venezia Lido Italy',
+    subtitle: 'Venice International Film Festival Retrospective',
+    category: 'cinema_premiere',
+  },
+  {
+    id: 'london-leicester',
+    textQuery: 'ODEON Luxe Leicester Square London United Kingdom',
+    subtitle: 'Royal European Cinema Premiere & Press Desk',
+    category: 'vip_hub',
+  },
+];
+
+const VENUE_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours (strictly within 30-day Maps Service Specific Terms)
+let cachedOfficialVenues: { savedAt: number; venues: OfficialMapPlace[] } | null = null;
+let venuesInFlight: Promise<{ venues: OfficialMapPlace[]; quotaExceeded: boolean }> | null = null;
+
+async function searchPlacesTextNew(
+  textQuery: string,
+  maxResultCount = 5
+): Promise<{
+  places: Array<{
+    placeId: string;
+    displayName: string;
+    formattedAddress: string;
+    lat: number;
+    lng: number;
+    googleMapsUri?: string;
+    primaryType?: string;
+  }>;
+  quotaExceeded: boolean;
+}> {
+  const mapsKey = getMapsApiKey();
+  if (!mapsKey) {
+    return { places: [], quotaExceeded: false };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const resp = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': mapsKey,
+        'X-Goog-FieldMask':
+          'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.primaryTypeDisplayName',
+        'X-Goog-Maps-Solution-ID': GMP_SOLUTION_ID,
+      },
+      body: JSON.stringify({
+        textQuery,
+        maxResultCount: Math.max(1, Math.min(10, maxResultCount)),
+        languageCode: 'en',
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (resp.status === 429) {
+      return { places: [], quotaExceeded: true };
+    }
+
+    const payload = (await resp.json().catch(() => null)) as {
+      error?: { status?: string; code?: number };
+      places?: Array<{
+        id?: string;
+        displayName?: { text?: string };
+        formattedAddress?: string;
+        location?: { latitude?: number; longitude?: number };
+        googleMapsUri?: string;
+        primaryTypeDisplayName?: { text?: string };
+      }>;
+    } | null;
+
+    if (payload?.error?.status === 'RESOURCE_EXHAUSTED' || payload?.error?.code === 429) {
+      return { places: [], quotaExceeded: true };
+    }
+
+    if (!resp.ok || !Array.isArray(payload?.places)) {
+      return { places: [], quotaExceeded: false };
+    }
+
+    const normalized = payload.places
+      .filter(
+        (p) =>
+          p?.location &&
+          typeof p.location.latitude === 'number' &&
+          typeof p.location.longitude === 'number' &&
+          Number.isFinite(p.location.latitude) &&
+          Number.isFinite(p.location.longitude)
+      )
+      .map((p) => ({
+        placeId: p.id || `${p.location!.latitude},${p.location!.longitude}`,
+        displayName: p.displayName?.text || textQuery,
+        formattedAddress: p.formattedAddress || '',
+        lat: p.location!.latitude!,
+        lng: p.location!.longitude!,
+        googleMapsUri: p.googleMapsUri,
+        primaryType: p.primaryTypeDisplayName?.text,
+      }));
+
+    return { places: normalized, quotaExceeded: false };
+  } catch {
+    return { places: [], quotaExceeded: false };
+  }
+}
+
+async function geocodeAddressFallback(query: string): Promise<{
+  placeId: string;
+  displayName: string;
+  formattedAddress: string;
+  lat: number;
+  lng: number;
+  quotaExceeded: boolean;
+} | null> {
+  const mapsKey = getMapsApiKey();
+  if (!mapsKey) return null;
+
+  // Uses Google Maps Platform Geocoding API v4 forward address endpoint
+  // Docs: https://developers.google.com/maps/documentation/geocoding/overview?utm_campaign=gmp_mcp_codeassist_v1_aistudio
+  try {
+    const url = new URL('https://geocode.googleapis.com/v4beta/geocode/address/' + encodeURIComponent(query));
+    url.searchParams.set('languageCode', 'en');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': mapsKey,
+        'X-Goog-FieldMask': 'results.placeId,results.formattedAddress,results.location',
+        'X-Goog-Maps-Solution-ID': GMP_SOLUTION_ID,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (resp.status === 429) {
+      return { placeId: '', displayName: '', formattedAddress: '', lat: 0, lng: 0, quotaExceeded: true };
+    }
+
+    const payload = (await resp.json().catch(() => null)) as {
+      error?: { status?: string; code?: number };
+      results?: Array<{
+        placeId?: string;
+        formattedAddress?: string;
+        location?: { latitude?: number; longitude?: number };
+      }>;
+    } | null;
+
+    if (payload?.error?.status === 'RESOURCE_EXHAUSTED' || payload?.error?.code === 429) {
+      return { placeId: '', displayName: '', formattedAddress: '', lat: 0, lng: 0, quotaExceeded: true };
+    }
+
+    const first = payload?.results?.[0];
+    if (
+      resp.ok &&
+      first?.location &&
+      typeof first.location.latitude === 'number' &&
+      typeof first.location.longitude === 'number'
+    ) {
+      return {
+        placeId: first.placeId || query,
+        displayName: query.split(',')[0],
+        formattedAddress: first.formattedAddress || query,
+        lat: first.location.latitude,
+        lng: first.location.longitude,
+        quotaExceeded: false,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+app.get('/api/map/venues', async (_req: Request, res: Response) => {
+  if (cachedOfficialVenues && Date.now() - cachedOfficialVenues.savedAt < VENUE_CACHE_TTL_MS) {
+    res.json({ venues: cachedOfficialVenues.venues, quotaExceeded: false });
+    return;
+  }
+
+  if (!venuesInFlight) {
+    venuesInFlight = (async () => {
+      let quotaExceeded = false;
+      const results = await Promise.all(
+        OFFICIAL_VENUE_QUERIES.map(async (item): Promise<OfficialMapPlace | null> => {
+          const placeRes = await searchPlacesTextNew(item.textQuery, 1);
+          if (placeRes.quotaExceeded) {
+            quotaExceeded = true;
+            return null;
+          }
+          const top = placeRes.places[0];
+          if (top) {
+            return {
+              id: item.id,
+              placeId: top.placeId,
+              title: top.displayName,
+              subtitle: item.subtitle,
+              category: item.category,
+              formattedAddress: top.formattedAddress,
+              lat: top.lat,
+              lng: top.lng,
+              googleMapsUri: top.googleMapsUri,
+              primaryType: top.primaryType,
+            };
+          }
+
+          // Fallback to Google Geocoding API v4 if Places API is unavailable
+          const geo = await geocodeAddressFallback(item.textQuery);
+          if (geo?.quotaExceeded) {
+            quotaExceeded = true;
+            return null;
+          }
+          if (geo) {
+            return {
+              id: item.id,
+              placeId: geo.placeId,
+              title: geo.displayName,
+              subtitle: item.subtitle,
+              category: item.category,
+              formattedAddress: geo.formattedAddress,
+              lat: geo.lat,
+              lng: geo.lng,
+              googleMapsUri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${geo.lat},${geo.lng}`)}`,
+            };
+          }
+          return null;
+        })
+      );
+
+      const venues = results.filter((v): v is OfficialMapPlace => Boolean(v));
+      if (venues.length > 0) {
+        cachedOfficialVenues = { savedAt: Date.now(), venues };
+      }
+      return { venues, quotaExceeded };
+    })().finally(() => {
+      venuesInFlight = null;
+    });
+  }
+
+  const outcome = await venuesInFlight;
+  res.json(outcome);
+});
+
+app.post('/api/map/search', async (req: Request, res: Response) => {
+  const rawQuery = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+  const cleanQuery = rawQuery.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 140);
+  if (cleanQuery.length < 2) {
+    res.status(400).json({ error: 'Please enter at least 2 characters to search Google Maps.' });
+    return;
+  }
+
+  const searchRes = await searchPlacesTextNew(cleanQuery, 6);
+  if (searchRes.quotaExceeded) {
+    res.status(429).json({ places: [], quotaExceeded: true, error: 'Google Maps quota reached.' });
+    return;
+  }
+
+  if (searchRes.places.length > 0) {
+    const places: OfficialMapPlace[] = searchRes.places.map((p, idx) => ({
+      id: `search-${idx}-${p.placeId}`,
+      placeId: p.placeId,
+      title: p.displayName,
+      subtitle: p.primaryType || 'Google Maps Verified Location',
+      category: 'search_result',
+      formattedAddress: p.formattedAddress,
+      lat: p.lat,
+      lng: p.lng,
+      googleMapsUri: p.googleMapsUri,
+      primaryType: p.primaryType,
+    }));
+    res.json({ places, quotaExceeded: false });
+    return;
+  }
+
+  // Fallback to Geocoding API v4 for direct addresses/cities if Places search returns empty
+  const geo = await geocodeAddressFallback(cleanQuery);
+  if (geo?.quotaExceeded) {
+    res.status(429).json({ places: [], quotaExceeded: true, error: 'Google Maps quota reached.' });
+    return;
+  }
+  if (geo) {
+    res.json({
+      places: [
+        {
+          id: `geo-${geo.placeId}`,
+          placeId: geo.placeId,
+          title: geo.displayName,
+          subtitle: 'Geocoded Location',
+          category: 'search_result',
+          formattedAddress: geo.formattedAddress,
+          lat: geo.lat,
+          lng: geo.lng,
+          googleMapsUri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${geo.lat},${geo.lng}`)}`,
+        },
+      ],
+      quotaExceeded: false,
+    });
+    return;
+  }
+
+  res.json({ places: [], quotaExceeded: false });
+});
+
 const REPLIES_FILE =
   process.env.K_SERVICE || process.env.NODE_ENV === 'production'
     ? path.join(os.tmpdir(), 'ld_dispatched_replies.json')
@@ -851,43 +1587,47 @@ function saveDispatchedReplies(ledger: DispatchedReplyLog[]) {
 
 const dispatchedRepliesLedger: DispatchedReplyLog[] = loadDispatchedReplies();
 
-// API endpoint to log and dispatch real-time replies to human recipients without needing email
-app.post('/api/replies', (req: Request, res: Response) => {
-  const { messageId, recipientName, recipientContact, subject, replyText, channelMethod, verificationHash, location } = req.body;
+// Protected API endpoint: only authenticated site owner can dispatch official replies
+app.post('/api/replies', requireAdminAuth, (req: Request, res: Response) => {
+  const { messageId, recipientName, recipientContact, subject, replyText, channelMethod, verificationHash, location } = req.body ?? {};
 
-  if (!replyText || !messageId) {
-    res.status(400).json({ error: 'Message ID and reply text are required' });
+  const safeString = (val: unknown, maxLen: number): string =>
+    typeof val === 'string'
+      ? val.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, maxLen)
+      : '';
+
+  const cleanMessageId = safeString(messageId, 80);
+  const cleanReplyText = safeString(replyText, 4000);
+
+  if (!cleanReplyText || !cleanMessageId || !/^[a-zA-Z0-9_-]{3,80}$/.test(cleanMessageId)) {
+    res.status(400).json({ error: 'Valid message ID and reply text are required' });
     return;
   }
 
   const generatedHash =
-    verificationHash ||
-    `LDC-SIG-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    safeString(verificationHash, 64) ||
+    `LDC-SIG-${crypto.randomBytes(3).toString('hex').toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
   const sanitizedLocation = sanitizeLocationPayload(location);
 
   const newLog: DispatchedReplyLog = {
-    id: `disp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    messageId,
-    recipientName: recipientName || 'Patron',
-    recipientContact: recipientContact || 'contact@officialleonardodicaprio.com',
-    subject: subject || 'Official Transmission Reply',
-    replyText,
+    id: `disp-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+    messageId: cleanMessageId,
+    recipientName: safeString(recipientName, 120) || 'Patron',
+    recipientContact: safeString(recipientContact, 160) || 'contact@officialleonardodicaprio.com',
+    subject: safeString(subject, 200) || 'Official Transmission Reply',
+    replyText: cleanReplyText,
     timestamp: new Date().toISOString(),
-    channelMethod: channelMethod || 'direct_portal_and_telegram',
+    channelMethod: safeString(channelMethod, 64) || 'direct_portal_and_telegram',
     deliveredToHuman: true,
     verificationHash: generatedHash,
-    telegramRelayReceipt: `TG-EXEC-${Math.floor(100000 + Math.random() * 900000)}`,
+    telegramRelayReceipt: `TG-EXEC-${crypto.randomInt(100000, 999999)}`,
     status: 'delivered_instant',
     location: sanitizedLocation,
   };
 
   dispatchedRepliesLedger.unshift(newLog);
   saveDispatchedReplies(dispatchedRepliesLedger);
-
-  console.log(
-    `[AUTOMATIC DIRECT REPLY DISPATCHED - NO EMAIL REQUIRED] To: ${newLog.recipientName} (${newLog.recipientContact}) | Msg: ${newLog.messageId} | Sig: ${newLog.verificationHash} | TG Relay: ${newLog.telegramRelayReceipt}${sanitizedLocation ? ` | Loc: ${sanitizedLocation.label}` : ''}`
-  );
 
   res.status(200).json({
     success: true,
@@ -896,16 +1636,22 @@ app.post('/api/replies', (req: Request, res: Response) => {
   });
 });
 
-app.get('/api/replies', (_req: Request, res: Response) => {
+// Protected: full reply ledger requires owner authentication
+app.get('/api/replies', requireAdminAuth, (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.json({
     count: dispatchedRepliesLedger.length,
     dispatchedReplies: dispatchedRepliesLedger,
   });
 });
 
-// Direct check for a specific message's replies
+// Scoped check for a single specific message thread's replies
 app.get('/api/replies/:messageId', (req: Request, res: Response) => {
   const { messageId } = req.params;
+  if (typeof messageId !== 'string' || !/^[a-zA-Z0-9_-]{3,80}$/.test(messageId)) {
+    res.status(400).json({ error: 'Invalid message ID format' });
+    return;
+  }
   const matches = dispatchedRepliesLedger.filter((r) => r.messageId === messageId);
   res.json({
     count: matches.length,
