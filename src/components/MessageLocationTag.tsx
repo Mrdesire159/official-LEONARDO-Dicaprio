@@ -76,11 +76,12 @@ interface MessageLocationTagProps {
   compact?: boolean;
   tone?: 'dark' | 'on-gold';
   defaultExpanded?: boolean;
+  align?: 'left' | 'right';
 }
 
 /**
- * Automatic real-location tag positioned at the top-right of every sent message and visitor request.
- * Displays the visitor's real detected city/region/country in a neat top-right badge,
+ * Automatic real-location tag attached below every sent message and visitor request.
+ * Displays the individual's real detected city/region/country in a neat badge,
  * with a clean click-to-expand live Google Map card.
  */
 export function MessageLocationTag({
@@ -88,6 +89,7 @@ export function MessageLocationTag({
   compact = false,
   tone = 'dark',
   defaultExpanded = false,
+  align = 'left',
 }: MessageLocationTagProps) {
   const [mapExpanded, setMapExpanded] = useState(defaultExpanded);
 
@@ -129,15 +131,15 @@ export function MessageLocationTag({
 
   return (
     <div
-      className="relative inline-flex flex-col items-end max-w-full shrink-0"
+      className={`relative inline-flex flex-col ${align === 'right' ? 'items-end' : 'items-start'} max-w-full shrink-0`}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Top-Right Real Location Tag */}
+      {/* Attached Below-Request Real Location Tag */}
       <button
         type="button"
         onClick={() => setMapExpanded((prev) => !prev)}
-        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-semibold transition-all cursor-pointer max-w-[210px] sm:max-w-[250px] ${badgeToneClasses}`}
-        title={`Real location: ${location.label} • Click to ${mapExpanded ? 'hide' : 'view'} map`}
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-semibold transition-all cursor-pointer max-w-[240px] sm:max-w-[300px] ${badgeToneClasses}`}
+        title={`Individual location: ${location.label} • Click to ${mapExpanded ? 'hide' : 'view'} map`}
       >
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-65" />

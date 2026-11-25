@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { OrderRecord, UserProfile, LuxuryTheme } from '../types';
 import { THEME_CONFIGS } from '../data/diCaprioData';
+import { MessageLocationTag } from './MessageLocationTag';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -292,6 +293,12 @@ export function UserProfileModal({
                       </button>
                     </div>
                   </div>
+
+                  {order.location && (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <MessageLocationTag location={order.location} />
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -932,42 +932,46 @@ export function AdminPortalModal({
 
             {/* Real-Time Incoming Message Alert Banner */}
             {realtimeIncomingAlert && (
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/25 via-zinc-900 to-black p-3.5 text-xs text-amber-200 shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <div className="min-w-0">
-                    <span className="font-bold text-white uppercase tracking-wider text-[11px]">⚡ Real-Time Message Received:</span>{' '}
-                    <span className="text-zinc-200 font-medium">{realtimeIncomingAlert.senderName}</span>{' '}
-                    <span className="text-amber-300 font-mono text-[11px]">(&ldquo;{realtimeIncomingAlert.subject}&rdquo;)</span>
+              <div className="mb-4 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/25 via-zinc-900 to-black p-3.5 text-xs text-amber-200 shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-in fade-in slide-in-from-top-2 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <div className="min-w-0">
+                      <span className="font-bold text-white uppercase tracking-wider text-[11px]">⚡ Real-Time Message Received:</span>{' '}
+                      <span className="text-zinc-200 font-medium">{realtimeIncomingAlert.senderName}</span>{' '}
+                      <span className="text-amber-300 font-mono text-[11px]">(&ldquo;{realtimeIncomingAlert.subject}&rdquo;)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('inbox');
+                        setSelectedMessageId(realtimeIncomingAlert.id);
+                        setRealtimeIncomingAlert(null);
+                      }}
+                      className="rounded-lg bg-amber-400 text-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors cursor-pointer"
+                    >
+                      Open Inbox
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRealtimeIncomingAlert(null)}
+                      className="text-zinc-400 hover:text-white p-1 text-xs cursor-pointer"
+                      aria-label="Dismiss alert"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-auto shrink-0">
-                  {realtimeIncomingAlert.location && (
+                {realtimeIncomingAlert.location && (
+                  <div className="pt-2 border-t border-amber-400/25">
                     <MessageLocationTag location={realtimeIncomingAlert.location} compact />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('inbox');
-                      setSelectedMessageId(realtimeIncomingAlert.id);
-                      setRealtimeIncomingAlert(null);
-                    }}
-                    className="rounded-lg bg-amber-400 text-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors cursor-pointer"
-                  >
-                    Open Inbox
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRealtimeIncomingAlert(null)}
-                    className="text-zinc-400 hover:text-white p-1 text-xs cursor-pointer"
-                    aria-label="Dismiss alert"
-                  >
-                    ✕
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1245,12 +1249,17 @@ export function AdminPortalModal({
                               </div>
 
                               <div className="flex flex-col items-end gap-1 shrink-0">
-                                {msg.location && <MessageLocationTag location={msg.location} compact />}
                                 <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap">
                                   {msg.timestamp}
                                 </span>
                               </div>
                             </div>
+
+                            {msg.location && (
+                              <div className="mt-2.5 pt-2 border-t border-white/10">
+                                <MessageLocationTag location={msg.location} compact />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -1347,18 +1356,20 @@ export function AdminPortalModal({
                             );
                           })()}
 
-                          <div className="rounded-xl border border-white/10 bg-black/60 p-3.5 space-y-2">
+                          <div className="rounded-xl border border-white/10 bg-black/60 p-3.5 space-y-2.5">
                             <div className="flex items-start justify-between gap-2 pb-2 border-b border-white/10">
                               <span className="text-[10px] font-mono uppercase text-zinc-400 pt-0.5">
                                 Visitor Message
                               </span>
-                              {current.location && (
-                                <MessageLocationTag location={current.location} />
-                              )}
                             </div>
                             <div className="text-xs text-zinc-200 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">
                               {current.message}
                             </div>
+                            {current.location && (
+                              <div className="pt-2 border-t border-white/10">
+                                <MessageLocationTag location={current.location} />
+                              </div>
+                            )}
                           </div>
 
                           {/* Reply Success Feedback Toast */}
@@ -1616,13 +1627,15 @@ export function AdminPortalModal({
                                         </span>
                                         <span className="text-zinc-500 font-mono block mt-0.5">{r.timestamp}</span>
                                       </div>
-                                      {'location' in r && r.location && (
-                                        <MessageLocationTag location={r.location} />
-                                      )}
                                     </div>
                                     <p className="text-zinc-200 text-xs leading-relaxed whitespace-pre-wrap font-sans">
                                       {r.text}
                                     </p>
+                                    {'location' in r && r.location && (
+                                      <div className="pt-1.5 border-t border-emerald-500/20">
+                                        <MessageLocationTag location={r.location} />
+                                      </div>
+                                    )}
                                     <div className="flex flex-wrap items-center justify-between gap-1.5 text-[9px] font-mono text-emerald-400/80 pt-1.5 border-t border-emerald-500/20">
                                       <div className="flex items-center gap-2">
                                         <span>✓ Verified Delivered</span>
@@ -2108,38 +2121,46 @@ export function AdminPortalModal({
                     {orders.map((o) => (
                       <div
                         key={o.id}
-                        className="p-4 rounded-xl border border-white/10 bg-black/50 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                        className="p-4 rounded-xl border border-white/10 bg-black/50 space-y-3"
                       >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-amber-300">
-                              Order #{o.orderNumber}
-                            </span>
-                            <span className="text-xs text-zinc-400">· {o.date}</span>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-amber-300">
+                                Order #{o.orderNumber}
+                              </span>
+                              <span className="text-xs text-zinc-400">· {o.date}</span>
+                            </div>
+                            <p className="text-xs text-white mt-1">
+                              {o.items.map((i) => i.title).join(', ')}
+                            </p>
+                            <p className="text-[11px] text-zinc-400">
+                              Total Amount: <span className="text-white font-mono font-bold">${o.totalAmount.toLocaleString()}</span> · Event: {o.venueEvent}
+                            </p>
                           </div>
-                          <p className="text-xs text-white mt-1">
-                            {o.items.map((i) => i.title).join(', ')}
-                          </p>
-                          <p className="text-[11px] text-zinc-400">
-                            Total Amount: <span className="text-white font-mono font-bold">${o.totalAmount.toLocaleString()}</span> · Event: {o.venueEvent}
-                          </p>
+
+                          {/* Status selector */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[11px] font-mono text-zinc-400">Status:</span>
+                            <select
+                              value={o.status}
+                              onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value as any)}
+                              className="rounded-lg border border-white/15 bg-zinc-900 px-3 py-1.5 text-xs text-white"
+                            >
+                              <option value="pending_approval">Awaiting Telegram Approval & Payment</option>
+                              <option value="confirmed">Order Confirmed</option>
+                              <option value="engraving">Physical Engraving</option>
+                              <option value="shipped">Armored Courier In Transit</option>
+                              <option value="ready_for_venue">Ready for Venue Check-In</option>
+                            </select>
+                          </div>
                         </div>
 
-                        {/* Status selector */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[11px] font-mono text-zinc-400">Status:</span>
-                          <select
-                            value={o.status}
-                            onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value as any)}
-                            className="rounded-lg border border-white/15 bg-zinc-900 px-3 py-1.5 text-xs text-white"
-                          >
-                            <option value="pending_approval">Awaiting Telegram Approval & Payment</option>
-                            <option value="confirmed">Order Confirmed</option>
-                            <option value="engraving">Physical Engraving</option>
-                            <option value="shipped">Armored Courier In Transit</option>
-                            <option value="ready_for_venue">Ready for Venue Check-In</option>
-                          </select>
-                        </div>
+                        {o.location && (
+                          <div className="pt-2.5 border-t border-white/10">
+                            <MessageLocationTag location={o.location} />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

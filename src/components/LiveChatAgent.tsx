@@ -676,51 +676,44 @@ export function LiveChatAgent({
                       key={m.id}
                       className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1.5`}
                     >
-                      {!m.location && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 px-1">
-                          {!isUser && (
-                            <span className="font-semibold text-amber-300">Claire Laurent</span>
-                          )}
-                          <span>{m.timestamp}</span>
-                          {isUser && (
-                            <span className="text-emerald-400 text-[9px]">✓✓</span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 px-1">
+                        {!isUser && (
+                          <span className="font-semibold text-amber-300">Claire Laurent</span>
+                        )}
+                        {isUser && (
+                          <span className="font-semibold text-zinc-300">You</span>
+                        )}
+                        <span>• {m.timestamp}</span>
+                        {isUser && (
+                          <span className="text-emerald-400 text-[9px]">✓✓</span>
+                        )}
+                      </div>
 
                       <div
-                        className={`max-w-[90%] rounded-2xl text-xs leading-relaxed ${
+                        className={`max-w-[90%] rounded-2xl text-xs leading-relaxed p-3.5 ${
                           isUser
                             ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-black font-medium shadow-md rounded-br-xs'
                             : 'bg-zinc-900/90 border border-zinc-800 text-zinc-100 shadow-inner rounded-bl-xs'
-                        } ${m.location ? 'p-3 space-y-2' : 'p-3.5'}`}
+                        }`}
                       >
-                        {/* Top Header Bar: Sender/Time (left) + Automatic Real Location Tag (top-right) */}
+                        <p className="whitespace-pre-line leading-relaxed">{m.text}</p>
+
+                        {/* Automatic Real Location Tag attached below every message */}
                         {m.location && (
                           <div
-                            className={`flex items-start justify-between gap-2 pb-1.5 border-b ${
-                              isUser ? 'border-black/15' : 'border-white/10'
+                            className={`mt-2.5 pt-2 border-t flex ${
+                              isUser
+                                ? 'border-black/15 justify-end'
+                                : 'border-white/10 justify-start'
                             }`}
                           >
-                            <div
-                              className={`flex items-center gap-1.5 text-[10px] shrink-0 pt-0.5 ${
-                                isUser ? 'text-black/75 font-semibold' : 'text-zinc-400'
-                              }`}
-                            >
-                              <span>{isUser ? 'You' : 'Claire Laurent'}</span>
-                              <span className="opacity-70">• {m.timestamp}</span>
-                              {isUser && (
-                                <span className="text-emerald-950 font-bold text-[9px]">✓✓</span>
-                              )}
-                            </div>
                             <MessageLocationTag
                               location={m.location}
                               tone={isUser ? 'on-gold' : 'dark'}
+                              align={isUser ? 'right' : 'left'}
                             />
                           </div>
                         )}
-
-                        <p className="whitespace-pre-line leading-relaxed">{m.text}</p>
                       </div>
 
                       {/* Interactive Action Buttons attached to Agent response */}

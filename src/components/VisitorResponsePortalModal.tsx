@@ -513,11 +513,16 @@ export function VisitorResponsePortalModal({
                               </span>
                             )}
                           </div>
-                          {msg.location && <MessageLocationTag location={msg.location} compact />}
                         </div>
 
                         <h4 className="text-xs font-bold text-white truncate mb-0.5">{msg.subject}</h4>
                         <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">{msg.message}</p>
+
+                        {msg.location && (
+                          <div className="mt-2 pt-1.5 border-t border-white/5">
+                            <MessageLocationTag location={msg.location} compact />
+                          </div>
+                        )}
 
                         <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 pt-1.5 border-t border-white/5 font-mono">
                           <span className="truncate max-w-[140px]">{msg.senderContact}</span>
@@ -557,14 +562,16 @@ export function VisitorResponsePortalModal({
                             <User className="h-3 w-3 text-amber-400 shrink-0" />
                             <span className="truncate">From: {activeMessage.senderName} ({activeMessage.senderContact})</span>
                           </div>
-                          {activeMessage.location && (
-                            <MessageLocationTag location={activeMessage.location} />
-                          )}
                         </div>
                         <p>{activeMessage.message}</p>
                         {activeMessage.evidenceUrl && (
                           <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-amber-300 font-mono">
                             Evidence Reference: <span className="underline">{activeMessage.evidenceUrl}</span>
+                          </div>
+                        )}
+                        {activeMessage.location && (
+                          <div className="pt-2 border-t border-white/10">
+                            <MessageLocationTag location={activeMessage.location} />
                           </div>
                         )}
                       </div>
@@ -622,9 +629,13 @@ export function VisitorResponsePortalModal({
                                   </span>
                                   <span className="text-zinc-400 block mt-0.5">{rep.timestamp}</span>
                                 </div>
-                                {rep.location && <MessageLocationTag location={rep.location} />}
                               </div>
                               <p className="text-xs text-zinc-100 font-sans leading-relaxed">{rep.text}</p>
+                              {rep.location && (
+                                <div className="pt-1.5 border-t border-white/10">
+                                  <MessageLocationTag location={rep.location} />
+                                </div>
+                              )}
                               <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 pt-1.5 border-t border-white/5">
                                 <span>{rep.relayStatus || 'Direct In-App Delivery'}</span>
                                 {rep.verificationHash && (

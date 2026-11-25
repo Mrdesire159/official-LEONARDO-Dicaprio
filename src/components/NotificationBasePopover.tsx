@@ -191,7 +191,6 @@ export function NotificationBasePopover({
                       <span className="text-amber-300 font-mono">Under Review</span>
                     )}
                   </div>
-                  {msg.location && <MessageLocationTag location={msg.location} compact />}
                 </div>
 
                 <p className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors truncate">
@@ -202,6 +201,12 @@ export function NotificationBasePopover({
                   <p className="text-[11px] text-zinc-300 line-clamp-2 bg-zinc-900/90 p-1.5 rounded-lg border border-white/10 italic">
                     "{latestReply}"
                   </p>
+                )}
+
+                {msg.location && (
+                  <div className="pt-1 border-t border-white/5">
+                    <MessageLocationTag location={msg.location} compact />
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between text-[9px] text-zinc-400 font-mono pt-1">

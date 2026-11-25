@@ -501,12 +501,17 @@ export function OfficialVerificationModal({
                                 </span>
                               </div>
                             </div>
-                            {inq.location && <MessageLocationTag location={inq.location} />}
                           </div>
 
                           <div className="p-2.5 rounded-lg bg-zinc-900/60 text-[11px] text-zinc-300 border border-white/5">
                             {inq.message}
                           </div>
+
+                          {inq.location && (
+                            <div className="pt-1.5 border-t border-white/10">
+                              <MessageLocationTag location={inq.location} />
+                            </div>
+                          )}
 
                           {/* Official Verified Response */}
                           {(inq.replies && inq.replies.length > 0
@@ -534,13 +539,15 @@ export function OfficialVerificationModal({
                                   </span>
                                   <span className="text-zinc-400 font-mono block mt-0.5">{rep.timestamp}</span>
                                 </div>
-                                {'location' in rep && rep.location && (
-                                  <MessageLocationTag location={rep.location} />
-                                )}
                               </div>
                               <p className="text-white text-xs leading-relaxed font-sans whitespace-pre-wrap">
                                 {rep.text}
                               </p>
+                              {'location' in rep && rep.location && (
+                                <div className="pt-1.5 border-t border-emerald-500/20">
+                                  <MessageLocationTag location={rep.location} />
+                                </div>
+                              )}
                               <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400/90 pt-1">
                                 <span>✓ Real-Time Verified Response</span>
                                 <span className="text-amber-300 font-mono">

@@ -134,6 +134,7 @@ export interface OrderRecord {
   venueDate: string;
   seatZone: string;
   qrCodeSerial: string;
+  location?: MessageLocation;
 }
 
 export interface UserProfile {
