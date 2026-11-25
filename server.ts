@@ -53,7 +53,7 @@ const SESSION_SIGNING_KEY =
     ? process.env.SESSION_SECRET
     : crypto.randomBytes(32).toString('hex');
 
-const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const ADMIN_HASH_FILE = path.join(os.tmpdir(), 'ld_owner_auth_hash.json');
 
 interface StoredAdminHash {
@@ -281,62 +281,62 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
   next(err);
 });
 
-// 4. Same-origin verification on mutating API routes (blocks cross-site request forgery)
-app.use('/api', (req: Request, res: Response, next: NextFunction) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
-    next();
-    return;
-  }
-  const originHeader = req.headers.origin;
-  if (typeof originHeader === 'string' && originHeader.trim()) {
-    try {
-      const originHost = new URL(originHeader).host.toLowerCase();
-      const rawHost =
-        (typeof req.headers['x-forwarded-host'] === 'string'
-          ? req.headers['x-forwarded-host'].split(',')[0].trim()
-          : '') ||
-        req.get('host') ||
-        '';
-      if (rawHost && originHost !== rawHost.toLowerCase()) {
-        res.status(403).json({ error: 'Cross-origin request blocked' });
-        return;
-      }
-    } catch {
-      res.status(403).json({ error: 'Invalid request origin' });
-      return;
-    }
-  }
-  next();
-});
-
-// 5. Tiered rate limiters across API endpoints
+// 4. Tiered rate limiters across API endpoints (no wildcard CORS; Bearer-token auth prevents cookie CSRF)
 const globalApiRateLimiter = createSlidingRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 120,
+  maxRequests: 180,
   message: 'Too many requests. Please slow down and try again shortly.',
 });
 const chatRateLimiter = createSlidingRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 20,
+  maxRequests: 30,
   message: 'Chat rate limit reached. Please wait a moment before sending another message.',
 });
 const locationRateLimiter = createSlidingRateLimiter({
   windowMs: 60 * 1000,
-  maxRequests: 30,
+  maxRequests: 40,
   message: 'Location lookup limit reached. Please try again shortly.',
 });
-const adminAuthRateLimiter = createSlidingRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  maxRequests: 5,
-  message: 'Too many authentication attempts. Access temporarily locked for 15 minutes.',
-});
+
+// Track only consecutive failed admin passcodes so valid owner sign-in is never falsely blocked
+const adminFailedAttempts = new Map<string, { count: number; resetAt: number }>();
+const ADMIN_FAIL_WINDOW_MS = 5 * 60 * 1000;
+const ADMIN_MAX_CONSECUTIVE_FAILS = 20;
+
+function isAdminLoginTemporarilyThrottled(clientKey: string): number {
+  const rec = adminFailedAttempts.get(clientKey);
+  if (!rec) return 0;
+  const now = Date.now();
+  if (rec.resetAt <= now) {
+    adminFailedAttempts.delete(clientKey);
+    return 0;
+  }
+  if (rec.count >= ADMIN_MAX_CONSECUTIVE_FAILS) {
+    return Math.max(1, Math.ceil((rec.resetAt - now) / 1000));
+  }
+  return 0;
+}
+
+function recordAdminLoginFailure(clientKey: string): void {
+  const now = Date.now();
+  const existing = adminFailedAttempts.get(clientKey);
+  if (!existing || existing.resetAt <= now) {
+    adminFailedAttempts.set(clientKey, { count: 1, resetAt: now + ADMIN_FAIL_WINDOW_MS });
+  } else {
+    existing.count += 1;
+  }
+}
+
+function clearAdminLoginFailures(clientKey: string): void {
+  adminFailedAttempts.delete(clientKey);
+}
 
 app.use('/api', globalApiRateLimiter);
 app.use('/api/chat', chatRateLimiter);
 app.use('/api/location', locationRateLimiter);
 app.use('/api/map', locationRateLimiter);
 
-// 6. Server-side Owner Admin Portal authentication routes
+// 5. Server-side Owner Admin Portal authentication routes
 app.get('/api/admin/status', (_req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   const envConfigured = Boolean(process.env.ADMIN_PASSCODE?.trim());
@@ -347,7 +347,7 @@ app.get('/api/admin/status', (_req: Request, res: Response) => {
   });
 });
 
-app.post('/api/admin/setup', adminAuthRateLimiter, (req: Request, res: Response) => {
+app.post('/api/admin/setup', (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   if (process.env.ADMIN_PASSCODE?.trim() || claimedAdminHash) {
     res.status(409).json({ error: 'Owner passcode is already configured.' });
@@ -383,19 +383,32 @@ app.post('/api/admin/setup', adminAuthRateLimiter, (req: Request, res: Response)
   });
 });
 
-app.post('/api/admin/login', adminAuthRateLimiter, (req: Request, res: Response) => {
+app.post('/api/admin/login', (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   if (!process.env.ADMIN_PASSCODE?.trim() && !claimedAdminHash) {
     res.status(409).json({ error: 'Owner passcode has not been set up yet.', requiresSetup: true });
     return;
   }
 
+  const clientKey = getRateLimitClientKey(req);
+  const retryAfterSec = isAdminLoginTemporarilyThrottled(clientKey);
+  if (retryAfterSec > 0) {
+    res.setHeader('Retry-After', String(retryAfterSec));
+    res.status(429).json({
+      error: `Too many incorrect attempts. Please wait ${retryAfterSec} seconds and try again.`,
+      retryAfterSeconds: retryAfterSec,
+    });
+    return;
+  }
+
   const passcode = typeof req.body?.passcode === 'string' ? req.body.passcode.trim() : '';
   if (!passcode || passcode.length > 128 || !verifyOwnerPasscode(passcode)) {
+    recordAdminLoginFailure(clientKey);
     res.status(401).json({ error: 'Incorrect Site Owner passcode.' });
     return;
   }
 
+  clearAdminLoginFailures(clientKey);
   const session = issueAdminSessionToken();
   res.json({
     success: true,

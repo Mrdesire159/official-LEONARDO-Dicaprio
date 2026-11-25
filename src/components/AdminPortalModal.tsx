@@ -809,8 +809,8 @@ export function AdminPortalModal({
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-light">
               {adminSetupStatus === 'unclaimed'
-                ? 'First-time security setup: choose a strong private owner passcode (at least 8 characters) to lock and protect this portal.'
-                : 'Restricted access. Server-verified authentication with brute-force lockout protection is active.'}
+                ? 'First-time setup: enter your private owner passcode (at least 8 characters) to unlock this portal.'
+                : 'Enter your main Site Owner passcode to unlock the Admin Portal.'}
             </p>
 
             {adminSetupStatus === 'loading' ? (
